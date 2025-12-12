@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors";
 import { env } from "./lib/env.js";
 import connectDB from "./lib/db.js";
 
@@ -27,9 +28,9 @@ app.get("/api/books", (req, res) => {
 });
 
 // Production static file serving
-if (env.NODE_ENV === "development") {
+if (env.NODE_ENV === "production") {
     app.use(express.static(path.join(__dirname, "../frontend/dist")));
-    app.get("*", (req, res) => {
+    app.get("/*", (req, res) => {
         res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
     });
 }
@@ -38,4 +39,4 @@ if (env.NODE_ENV === "development") {
 app.listen(env.PORT, () => {
     console.log(`Server is running on port ${env.PORT}`);
     connectDB();
-}); 
+});

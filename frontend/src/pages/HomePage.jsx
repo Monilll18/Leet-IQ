@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -8,9 +8,16 @@ import {
   VideoIcon,
   ZapIcon,
 } from "lucide-react";
-import { SignInButton } from "@clerk/clerk-react";
+import { SignInButton, useUser } from "@clerk/clerk-react";
 
 function HomePage() {
+
+  const { isSignedIn } = useUser();
+
+  if (isSignedIn) {
+    return <Navigate to="/dashboard" />;
+  }
+
   return (
     <div className="bg-gradient-to-br from-base-100 via-base-200 to-base-300">
       {/* NAVBAR */}
