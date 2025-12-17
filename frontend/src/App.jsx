@@ -12,6 +12,14 @@ function App() {
   const { isSignedIn, isLoaded } = useUser();
   const isDevelopment = false;
 
+  if (!isLoaded) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-base-100">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    );
+  }
+
   return (
     <>
 
@@ -21,7 +29,7 @@ function App() {
         <Route path="/dashboard" element={isDevelopment || isSignedIn ? <DashboardPage /> : <Navigate to={"/"} />} />
         <Route path="/problems" element={isDevelopment || isSignedIn ? <ProblemsPage /> : <Navigate to={"/"} />} />
         <Route path="/problem/:id" element={isDevelopment || isSignedIn ? <ProblemPage /> : <Navigate to={"/"} />} />
-        <Route path="/session" element={isDevelopment || isSignedIn ? <SessionPage /> : <Navigate to={"/"} />} />
+        <Route path="/session/:id" element={isDevelopment || isSignedIn ? <SessionPage /> : <Navigate to={"/"} />} />
       </Routes>
 
       <Toaster toastOptions={{ duration: 3000 }} />

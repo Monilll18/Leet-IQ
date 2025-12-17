@@ -3,19 +3,20 @@
     "@clerk/express": "^1.7.41",
     "@stream-io/node-sdk": "^0.7.26",
     "cors": "^2.8.5",
+    "dockerode": "^4.0.9",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "inngest": "^3.44.3",
+    "fs-extra": "^11.3.2",
     "mongoose": "^8.19.1",
-    "stream-chat": "^9.24.0"
+    "stream-chat": "^9.24.0",
+    "uuid": "^13.0.0"
   },
   "name": "backend",
   "version": "1.0.0",
   "description": "",
   "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3001/api/inngest"
+    "dev": "nodemon src/server.js"
   },
   "keywords": [],
   "author": "",

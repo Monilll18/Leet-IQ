@@ -18,8 +18,9 @@ const app = express();
 // Routes imports
 // Routes imports
 import sessionRoutes from "./routes/sessionRoute.js";
-import { inngestApi } from "./routes/inngestRoute.js";
+
 import chatRoutes from "./routes/chatRoute.js";
+import executorRoutes from "./routes/executorRoute.js";
 
 app.use(express.json());
 const allowedOrigin = env.CLIENT_URL || process.env.CLIENT_URL || "http://localhost:5173";
@@ -28,7 +29,8 @@ app.use(cors({ origin: allowedOrigin, credentials: true }));
 // Routes
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/inngest", inngestApi);
+app.use("/api/execute", executorRoutes);
+
 app.get("/api/health", (req, res) => {
     res.status(200).json({ msg: "Server is healthy", status: "success" });
 });

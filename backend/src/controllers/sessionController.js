@@ -22,24 +22,35 @@ export async function createSession(req, res) {
 
     // create session in db
     const session = await Session.create({ problem, difficulty, host: userId, callId });
+    console.log("Session created in DB:", session._id);
 
     // create stream video call
-    await streamClient.video.call("default", callId).getOrCreate({
-      data: {
-        created_by_id: clerkId,
-        custom: { problem, difficulty, sessionId: session._id.toString() },
-      },
-    });
+    try {
+      await streamClient.video.call("default", callId).getOrCreate({
+        data: {
+          created_by_id: clerkId,
+          custom: { problem, difficulty, sessionId: session._id.toString() },
+        },
+      });
+    } catch (streamErr) {
+      console.error("Error creating Stream video call:", streamErr);
+      // Continue even if stream fails, to debug
+    }
 
     // chat messaging
-    const channel = chatClient.channel("messaging", callId, {
-      name: `${problem} Session`,
-      created_by_id: clerkId,
-      members: [clerkId],
-    });
+    try {
+      const channel = chatClient.channel("messaging", callId, {
+        name: `${problem} Session`,
+        created_by_id: clerkId,
+        members: [clerkId],
+      });
 
-    await channel.create();
+      await channel.create();
+    } catch (chatErr) {
+      console.error("Error creating Stream chat:", chatErr);
+    }
 
+    console.log("Session creation successful, returning response.");
     res.status(201).json({ session });
   } catch (error) {
     console.error("Error in createSession controller:", error);

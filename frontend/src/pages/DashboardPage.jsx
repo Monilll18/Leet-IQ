@@ -34,6 +34,10 @@ function DashboardPage() {
           setShowCreateModal(false);
           navigate(`/session/${data.session._id}`);
         },
+        onError: (error) => {
+          console.error("Failed to create session:", error);
+          alert("Failed to create session. Check console for details.");
+        }
       }
     );
   };

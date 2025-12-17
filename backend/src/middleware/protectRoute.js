@@ -1,5 +1,6 @@
 import { requireAuth, clerkClient } from "@clerk/express";
 import User from "../models/User.js";
+import { upsertStreamUser } from "../lib/stream.js";
 
 export const protectRoute = [
   requireAuth(),
@@ -25,6 +26,13 @@ export const protectRoute = [
               clerkUser.username ||
               "Unnamed User",
             profileImage: clerkUser.imageUrl || "",
+          });
+
+          // sync to stream
+          await upsertStreamUser({
+            id: user.clerkId,
+            name: user.name,
+            image: user.profileImage,
           });
         } catch (createErr) {
           console.error("Error syncing Clerk user to DB:", createErr);
