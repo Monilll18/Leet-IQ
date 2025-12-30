@@ -68,7 +68,7 @@ function ProblemPage() {
         console.log(`[Persistence] Loading saved ${selectedLanguage} code`);
         setCode(savedSubmission.code);
       } else {
-        setCode(PROBLEMS[id]?.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`);
+        setCode(PROBLEMS[id].starterCode[selectedLanguage]);
       }
     }
   }, [selectedLanguage]);

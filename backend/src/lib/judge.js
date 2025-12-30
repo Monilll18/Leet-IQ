@@ -1,4 +1,5 @@
 import { runCodeInDocker } from "./dockerExecutor.js";
+import { randomUUID } from "crypto";
 
 const LANGUAGE_CONFIG = {
     javascript: { language: "javascript" },
@@ -8,44 +9,51 @@ const LANGUAGE_CONFIG = {
 
 /**
  * Generates a wrapper script for the specific language.
+ * Now uses a secret result marker to prevent user code spoofing.
  */
-function getDriver(language, userCode, functionName, testCases) {
+function getDriver(language, userCode, functionName, testCases, marker) {
     const tcJson = JSON.stringify(testCases);
 
     switch (language.toLowerCase()) {
         case "javascript":
             return `
 ${userCode}
-const testCases = ${tcJson};
-const results = [];
-for (const tc of testCases) {
-    try {
-        const start = performance.now();
-        let actual;
-        if (typeof ${functionName} === 'function') {
-            actual = ${functionName}(...tc.params);
-        } else if (typeof Solution !== 'undefined') {
-            const sol = new Solution();
-            if (typeof sol.${functionName} === 'function') {
-                actual = sol.${functionName}(...tc.params);
+(function() {
+    const testCases = ${tcJson};
+    const results = [];
+    const marker = "${marker}";
+    
+    for (const tc of testCases) {
+        try {
+            const start = performance.now();
+            let actual;
+            if (typeof ${functionName} === 'function') {
+                actual = ${functionName}(...tc.params);
+            } else if (typeof Solution !== 'undefined') {
+                const sol = new Solution();
+                if (typeof sol.${functionName} === 'function') {
+                    actual = sol.${functionName}(...tc.params);
+                } else {
+                    throw new Error("Function ${functionName} not found in Solution class");
+                }
             } else {
-                throw new Error("Function ${functionName} not found in Solution class");
+                throw new Error("Function ${functionName} not found");
             }
-        } else {
-            throw new Error("Function ${functionName} not found");
+            const end = performance.now();
+            
+            results.push({
+                status: "Accepted",
+                actual: actual,
+                expected: tc.expected,
+                time: end - start
+            });
+        } catch (e) {
+            results.push({ status: "Runtime Error", error: e.message });
+            break; // Stop on first error for security and speed
         }
-        const end = performance.now();
-        results.push({
-            status: "Accepted",
-            actual: actual,
-            expected: tc.expected,
-            time: end - start
-        });
-    } catch (e) {
-        results.push({ status: "Runtime Error", error: e.message });
     }
-}
-console.log("__JUDGE_RESULTS__" + JSON.stringify(results));
+    process.stdout.write(marker + JSON.stringify(results) + "\\n");
+})();
 `;
 
         case "python":
@@ -55,55 +63,60 @@ import time
 import json
 import sys
 
-exec_globals = {}
-try:
-    exec(compile("""${escapedCode}\""", 'user_code', 'exec'), exec_globals)
-except Exception as e:
-    print("__JUDGE_RESULTS__" + json.dumps([{"status": "Runtime Error", "error": str(e)}]))
-    sys.exit(0)
+def run_judge():
+    marker = "${marker}"
+    exec_globals = {}
+    try:
+        exec(compile("""${escapedCode}\""", 'user_code', 'exec'), exec_globals)
+    except Exception as e:
+        print(marker + json.dumps([{"status": "Runtime Error", "error": str(e)}]))
+        return
 
-test_cases = json.loads('${tcJson.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')
-results = []
-try:
+    test_cases = json.loads('${tcJson.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')
+    results = []
+    
     if 'Solution' in exec_globals:
         sol = exec_globals['Solution']()
-        func = getattr(sol, '${functionName}')
+        func = getattr(sol, '${functionName}', None)
     else:
         func = exec_globals.get('${functionName}')
 
     if not func:
-        raise Exception("Function ${functionName} not found")
+        print(marker + json.dumps([{"status": "Runtime Error", "error": "Function ${functionName} not found"}]))
+        return
 
     for tc in test_cases:
-        start = time.perf_counter()
-        actual = func(*tc['params'])
-        end = time.perf_counter()
-        results.append({
-            "status": "Accepted",
-            "actual": actual,
-            "expected": tc['expected'],
-            "time": (end - start) * 1000
-        })
-except Exception as e:
-    results.append({"status": "Runtime Error", "error": str(e)})
+        try:
+            start = time.perf_counter()
+            actual = func(*tc['params'])
+            end = time.perf_counter()
+            results.append({
+                "status": "Accepted",
+                "actual": actual,
+                "expected": tc['expected'],
+                "time": (end - start) * 1000
+            })
+        except Exception as e:
+            results.append({"status": "Runtime Error", "error": str(e)})
+            break # Stop on first fail
 
-print("__JUDGE_RESULTS__" + json.dumps(results))
+    print(marker + json.dumps(results))
+
+run_judge()
 `;
 
         case "java":
-            // Java requires a more structured approach since it's compiled.
-            // We use a predefined wrapper class that parses JSON and calls the user's Solution class.
+            // Java requires a more structured approach
             return `
 import java.util.*;
 
 ${userCode}
 
-public class Solution {
+public class SolutionWrapper {
     public static void main(String[] args) {
-        // Simple manual runner for now (expand as needed for JSON parsing)
-        // For simplicity, we assume the user provides a Solution class with a static method or instance method.
-        // Professional implementations would use a library like Jackson for JSON handling.
-        System.out.println("__JUDGE_RESULTS__[]"); // Placeholder until full Java parser is added
+        String marker = "${marker}";
+        // Simplified Java execution for now
+        System.out.println(marker + "[]"); 
     }
 }
 `;
@@ -117,10 +130,12 @@ export async function judgeCode(language, userCode, functionName, testCases, lim
     const config = LANGUAGE_CONFIG[language.toLowerCase()];
     if (!config) throw new Error("Unsupported language");
 
-    const driverCode = getDriver(language, userCode, functionName, testCases);
+    // Spoof protection: unique marker per run
+    const marker = `__JUDGE_${randomUUID()}__`;
+    const driverCode = getDriver(language, userCode, functionName, testCases, marker);
 
     try {
-        console.log(`[Judge] Executing ${language} in Docker...`);
+        console.log(`[Judge] Executing ${language} in Docker with marker...`);
         const result = await runCodeInDocker(language, driverCode, {
             timeLimit: limits.timeLimit || 2000,
             memoryLimit: limits.memoryLimit || 128
@@ -130,7 +145,7 @@ export async function judgeCode(language, userCode, functionName, testCases, lim
             return result;
         }
 
-        // Handle TLE/MLE from Docker
+        // Handle TLE/MLE from Docker level
         if (result.status === "Time Limit Exceeded" || result.status === "Memory Limit Exceeded") {
             return {
                 status: result.status,
@@ -141,23 +156,31 @@ export async function judgeCode(language, userCode, functionName, testCases, lim
             };
         }
 
-        // Process output for results
-        const match = result.output?.match(/__JUDGE_RESULTS__(.*)/);
-        if (!match) {
-            // Check for other errors
-            if (result.status === "error") {
+        // Process output for results using our secret marker
+        const markerIndex = result.output?.indexOf(marker);
+        let rawOutput = result.output;
+        let judgeJson = null;
+
+        if (markerIndex !== -1) {
+            rawOutput = result.output.substring(0, markerIndex).trim();
+            judgeJson = result.output.substring(markerIndex + marker.length).trim();
+        }
+
+        if (!judgeJson) {
+            // If no JSON was found but status was successful, something went wrong
+            if (result.status === "success" || result.status === "Accepted") {
                 return {
                     status: "Runtime Error",
-                    error: result.error,
-                    output: result.output,
+                    error: "No results received. Check for infinite loops or process kills.",
+                    rawOutput: rawOutput,
                     runtime: result.runtime,
                     memory: result.memory
                 };
             }
             return {
                 status: "Runtime Error",
-                error: "Could not parse judge results. Check for infinite loops or massive output.",
-                output: result.output,
+                error: result.error || "Execution failed without results",
+                rawOutput: rawOutput,
                 runtime: result.runtime,
                 memory: result.memory
             };
@@ -165,12 +188,12 @@ export async function judgeCode(language, userCode, functionName, testCases, lim
 
         let cases = [];
         try {
-            cases = JSON.parse(match[1]);
+            cases = JSON.parse(judgeJson);
         } catch (parseErr) {
             return {
                 status: "Runtime Error",
-                error: "Failed to parse internal judge JSON.",
-                output: result.output,
+                error: "Failed to parse judge output. Output stream might be corrupted.",
+                rawOutput: rawOutput,
                 runtime: result.runtime,
                 memory: result.memory
             };
@@ -198,8 +221,9 @@ export async function judgeCode(language, userCode, functionName, testCases, lim
         return {
             status: finalStatus,
             cases: cases,
+            rawOutput: rawOutput,
             runtime: parseFloat(totalTime.toFixed(2)),
-            memory: result.memory, // Docker stats would be ideal here
+            memory: result.memory,
             failure: firstFailure,
         };
 

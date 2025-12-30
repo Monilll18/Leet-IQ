@@ -25,4 +25,7 @@ export const env = {
     CLERK_WEBHOOK_SECRET: process.env.CLERK_WEBHOOK_SECRET,
     STREAM_API_KEY: process.env.STREAM_API_KEY,
     STREAM_SECRET_KEY: process.env.STREAM_SECRET_KEY,
+    ADMIN_EMAILS: process.env.ADMIN_EMAILS
+        ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
+        : [],
 };

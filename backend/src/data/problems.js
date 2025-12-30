@@ -5,7 +5,12 @@ export const PROBLEMS = {
         testCases: [
             { params: [[2, 7, 11, 15], 9], expected: [0, 1] },
             { params: [[3, 2, 4], 6], expected: [1, 2] },
-            { params: [[3, 3], 6], expected: [0, 1] }
+            { params: [[3, 3], 6], expected: [0, 1] },
+            // Stress Test: Large input to force O(N^2) to TLE
+            {
+                params: [Array.from({ length: 10000 }, (_, i) => i), 19997],
+                expected: [9998, 9999]
+            }
         ]
     },
     "reverse-string": {

@@ -11,29 +11,10 @@ export const executeCode = async (language, code, problemId, isSubmit = false) =
 
         const data = response.data;
 
-        // If it was a judging run, we return the full data object
-        if (isSubmit) {
-            return {
-                success: data.status === "Accepted",
-                ...data
-            };
-        }
-
-        if (data.status === "Runtime Error") {
-            return {
-                success: false,
-                output: data.output || "",
-                error: `Runtime Error:\n${data.output}`,
-                runtime: data.runtime || 0,
-                memory: data.memory || 0
-            };
-        }
-
+        // Return the full payload so the UI can access rawOutput, cases, etc.
         return {
-            success: true,
-            output: data.output,
-            runtime: data.runtime || 0,
-            memory: data.memory || 0,
+            success: data.status === "Accepted",
+            ...data
         };
 
     } catch (error) {

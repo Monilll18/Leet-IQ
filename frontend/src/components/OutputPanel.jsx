@@ -50,11 +50,55 @@ function OutputPanel({ output, problem, selectedLanguage }) {
           <div className={`size-2 rounded-full ${output ? (output.success ? 'bg-success' : 'bg-error') : 'bg-base-content/20'}`} />
           Test Result
         </button>
+        <button
+          onClick={() => setActiveTab("terminal")}
+          className={`px-4 py-2 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === "terminal" ? "border-primary text-primary" : "border-transparent opacity-50 hover:opacity-100"
+            }`}
+        >
+          <div className="size-2 bg-base-content/40 rounded-sm" />
+          Terminal
+        </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto bg-base-100">
+        {activeTab === "terminal" ? (
+          <div className="h-full bg-black/95 p-6 font-mono text-sm overflow-auto selection:bg-primary/30 animate-in fade-in duration-300">
+            {!output ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/10 italic">
+                <TerminalIcon className="size-12 mb-4 opacity-10" />
+                <p>Run code to see stdout here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Raw Execution Output</span>
+                  <span className="text-[10px] text-white/20">{new Date().toLocaleTimeString()}</span>
+                </div>
+                {output.rawOutput ? (
+                  <pre className="text-emerald-400 whitespace-pre-wrap leading-relaxed drop-shadow-sm">
+                    {output.rawOutput}
+                  </pre>
+                ) : (
+                  <p className="text-white/20 italic">No output produced.</p>
+                )}
 
-        {activeTab === "testcase" ? (
+                {output.status === "Runtime Error" && (
+                  <div className="mt-6 border-l-2 border-error pl-4">
+                    <p className="text-error font-bold mb-1 uppercase text-xs tracking-widest">Runtime Error:</p>
+                    <pre className="text-error/80 whitespace-pre-wrap text-xs">
+                      {output.error || output.output}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="pt-8 opacity-20 text-[10px] uppercase font-black tracking-widest flex items-center gap-2">
+                  <div className="size-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  Process finished with status {output.status}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : activeTab === "testcase" ? (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Case Navigation within Testcase Tab */}
             <div className="flex gap-2">
@@ -125,7 +169,9 @@ function OutputPanel({ output, problem, selectedLanguage }) {
                       <div>
                         <p className="text-[10px] font-black uppercase opacity-30 mb-2 tracking-widest">Input</p>
                         <div className="bg-base-300/50 rounded-xl p-3 font-mono text-xs text-base-content/70">
-                          {testCases[selectedCaseIdx]?.input || "N/A"}
+                          {currentTestResult.input ? (
+                            Array.isArray(currentTestResult.input) ? currentTestResult.input.map(i => JSON.stringify(i)).join(", ") : JSON.stringify(currentTestResult.input)
+                          ) : (testCases[selectedCaseIdx]?.input || "N/A")}
                         </div>
                       </div>
 

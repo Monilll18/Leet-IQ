@@ -47,14 +47,24 @@ export const executeSubmission = async (req, res) => {
             }
         }
 
+        // Enrich cases with input data from our local database
+        const enrichedCases = result.cases?.map((c, idx) => ({
+            ...c,
+            input: testCasesToRun[idx]?.params // Params are the actual inputs
+        })) || [];
+
         // Map internal status to what the frontend expects if needed,
         // but judgeCode already returns "Accepted", "Wrong Answer", etc.
         res.status(200).json({
             status: result.status,
             runtime: result.runtime,
             memory: result.memory,
-            cases: result.cases,
-            failure: result.failure,
+            cases: enrichedCases,
+            rawOutput: result.rawOutput, // Full stdout minus judge JSON
+            failure: result.failure ? {
+                ...result.failure,
+                input: testCasesToRun[result.cases.findIndex(c => c === result.failure)]?.params
+            } : null,
             benchmarks: benchmarks,
             // For "Run" mode compatibility with old OutputPanel expectations:
             success: result.status === "Accepted",

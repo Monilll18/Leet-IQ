@@ -114,6 +114,62 @@ const SubmissionResult = ({ result, onBack }) => {
                 )}
             </div>
 
+            {/* Test Cases Section */}
+            {result.cases && result.cases.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                            <CheckCircle2Icon className="size-4 text-success" />
+                            Test Result
+                        </h3>
+                        <button
+                            onClick={() => setShowTestCases(!showTestCases)}
+                            className="btn btn-ghost btn-xs gap-1 opacity-60"
+                        >
+                            {showTestCases ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
+                            {showTestCases ? "Hide Details" : "Show Details"}
+                        </button>
+                    </div>
+
+                    <div className={`space-y-4 ${showTestCases ? 'block' : 'hidden md:block'}`}>
+                        <div className="grid grid-cols-1 gap-4">
+                            {result.cases.map((tc, idx) => (
+                                <div key={idx} className="bg-base-200/40 border border-base-300 rounded-2xl overflow-hidden">
+                                    <div className="px-4 py-2 bg-base-300/30 border-b border-base-300 flex items-center justify-between">
+                                        <span className="text-xs font-bold opacity-50">Case {idx + 1}</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tc.status === 'Accepted' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+                                            }`}>
+                                            {tc.status === 'Accepted' ? 'Passed' : tc.status}
+                                        </span>
+                                    </div>
+                                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Input</p>
+                                            <div className="bg-base-300/50 rounded-lg p-2 font-mono text-xs overflow-x-auto">
+                                                {Array.isArray(tc.input) ? tc.input.map(i => JSON.stringify(i)).join(", ") : JSON.stringify(tc.input) || "N/A"}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Output</p>
+                                            <div className={`bg-base-300/50 rounded-lg p-2 font-mono text-xs overflow-x-auto ${tc.status !== 'Accepted' ? 'text-error' : 'text-success'
+                                                }`}>
+                                                {JSON.stringify(tc.actual) || tc.output || (tc.error ? `Error: ${tc.error}` : "N/A")}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Expected</p>
+                                            <div className="bg-base-300/50 rounded-lg p-2 font-mono text-xs overflow-x-auto opacity-60">
+                                                {JSON.stringify(tc.expected) || "N/A"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Distribution Charts */}
             {isAccepted && benchmarks && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

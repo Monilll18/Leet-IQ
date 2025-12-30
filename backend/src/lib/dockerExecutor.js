@@ -43,7 +43,7 @@ export async function runCodeInDocker(language, code, options = {}) {
             const timeout = setTimeout(() => {
                 timedOut = true;
                 child.kill('SIGKILL');
-            }, timeLimit + 500); // 500ms safety buffer
+            }, timeLimit); // Exact limit, no buffer for strictness
 
             child.on('close', (code) => {
                 clearTimeout(timeout);
@@ -58,19 +58,19 @@ export async function runCodeInDocker(language, code, options = {}) {
                     stdout = stdout.replace(/__MEMORY_USAGE__\d+/, '').trim();
                 }
 
-                // If Docker exits with code 137, it usually means OOM (MLE) or SIGKILL (TLE)
                 let status = "success";
                 let error = null;
 
+                // Exit code 137 specifically means SIGKILL, usually from OOM Killer or our timeout
                 if (timedOut) {
                     status = "Time Limit Exceeded";
-                    error = "Process timed out";
+                    error = `Execution exceeded time limit of ${timeLimit}ms`;
                 } else if (code === 137) {
                     status = "Memory Limit Exceeded";
-                    error = "Process exceeded memory limit";
+                    error = `Execution exceeded memory limit of ${memoryLimit}MB`;
                 } else if (code !== 0) {
-                    status = "error";
-                    error = stderr || "Execution failed";
+                    status = "Runtime Error";
+                    error = stderr.trim() || "Execution failed";
                 }
 
                 resolve({

@@ -10,6 +10,8 @@ import SessionPage from "./pages/SessionPage";
 import ContestsPage from "./pages/ContestsPage";
 import ContestDetailPage from "./pages/ContestDetailPage";
 import JoinPage from "./pages/JoinPage";
+import AdminPage from "./pages/AdminPage";
+import BanCheck from "./components/BanCheck";
 
 function App() {
   const { isSignedIn, isLoaded } = useUser();
@@ -24,7 +26,7 @@ function App() {
   }
 
   return (
-    <>
+    <BanCheck>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={isDevelopment || isSignedIn ? <DashboardPage /> : <Navigate to={"/"} />} />
@@ -43,10 +45,13 @@ function App() {
 
         <Route path="/contests" element={isDevelopment || isSignedIn ? <ContestsPage /> : <Navigate to={"/"} />} />
         <Route path="/contest/:id" element={isDevelopment || isSignedIn ? <ContestDetailPage /> : <Navigate to={"/"} />} />
+
+        {/* Admin route */}
+        <Route path="/admin" element={isDevelopment || isSignedIn ? <AdminPage /> : <Navigate to={"/"} />} />
       </Routes>
 
       <Toaster toastOptions={{ duration: 3000 }} />
-    </>
+    </BanCheck>
   );
 }
 

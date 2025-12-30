@@ -41,6 +41,28 @@ export const protectRoute = [
         }
       }
 
+      // Check if user should be admin based on email
+      const { env } = await import("../lib/env.js");
+      const isAdminEmail = env.ADMIN_EMAILS.includes(user.email?.toLowerCase());
+
+      // Update admin status if it changed
+      if (user.isAdmin !== isAdminEmail || user.role !== (isAdminEmail ? 'admin' : 'user')) {
+        user.isAdmin = isAdminEmail;
+        user.role = isAdminEmail ? 'admin' : 'user';
+        await user.save();
+        console.log(`[Auth] Updated admin status for ${user.email}: ${isAdminEmail}`);
+      }
+
+      // Check if user is banned (admins cannot be banned)
+      if (user.banned && !user.isAdmin) {
+        return res.status(403).json({
+          message: "Your account has been banned",
+          banned: true,
+          reason: user.bannedReason,
+          bannedAt: user.bannedAt
+        });
+      }
+
       // attach user to req for downstream handlers
       req.user = user;
 
