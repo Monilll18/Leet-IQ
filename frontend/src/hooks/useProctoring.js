@@ -67,20 +67,23 @@ export const useProctoring = (active) => {
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", handleBlur);
-        document.addEventListener("copy", blockEvent);
-        document.addEventListener("paste", blockEvent);
-        document.addEventListener("cut", blockEvent);
-        document.addEventListener("contextmenu", blockEvent);
-        document.addEventListener("keydown", handleKeyDown);
+        // TEMP_DISABLE: Copy/paste blocking disabled for testing
+        // To re-enable: uncomment the 4 lines below
+        // document.addEventListener("copy", blockEvent);
+        // document.addEventListener("paste", blockEvent);
+        // document.addEventListener("cut", blockEvent);
+        // document.addEventListener("contextmenu", blockEvent);
+        // TEMP_DISABLE: Hotkey blocking disabled for testing
+        // document.addEventListener("keydown", handleKeyDown);
 
         return () => {
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("blur", handleBlur);
-            document.removeEventListener("copy", blockEvent);
-            document.removeEventListener("paste", blockEvent);
-            document.removeEventListener("cut", blockEvent);
-            document.removeEventListener("contextmenu", blockEvent);
-            document.removeEventListener("keydown", handleKeyDown);
+            // document.removeEventListener("copy", blockEvent);
+            // document.removeEventListener("paste", blockEvent);
+            // document.removeEventListener("cut", blockEvent);
+            // document.removeEventListener("contextmenu", blockEvent);
+            // document.removeEventListener("keydown", handleKeyDown);
         };
     }, [active, lock]);
 

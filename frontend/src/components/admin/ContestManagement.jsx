@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 function ContestManagement() {
     const [showModal, setShowModal] = useState(false);
     const [editingContest, setEditingContest] = useState(null);
+    const [selectedProblems, setSelectedProblems] = useState([]);
     const queryClient = useQueryClient();
 
     const { data, isLoading } = useQuery({
@@ -14,7 +15,7 @@ function ContestManagement() {
         queryFn: getAllContests,
     });
 
-    const { data: problemsData } = useQuery({
+    const { data: problemsData, isLoading: problemsLoading } = useQuery({
         queryKey: ["adminProblems"],
         queryFn: getAllProblems,
     });
@@ -26,8 +27,10 @@ function ContestManagement() {
             queryClient.invalidateQueries(["adminContests"]);
             setShowModal(false);
             setEditingContest(null);
+            setSelectedProblems([]);
         },
         onError: (error) => {
+            console.error("Contest creation error:", error);
             toast.error(error.response?.data?.message || "Failed to create contest");
         },
     });
@@ -39,6 +42,7 @@ function ContestManagement() {
             queryClient.invalidateQueries(["adminContests"]);
             setShowModal(false);
             setEditingContest(null);
+            setSelectedProblems([]);
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || "Failed to update contest");
@@ -59,14 +63,39 @@ function ContestManagement() {
     const handleSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+
         const contestData = {
             name: formData.get("name"),
             description: formData.get("description"),
             startDate: formData.get("startDate"),
             endDate: formData.get("endDate"),
-            problems: formData.getAll("problems"),
+            problems: selectedProblems,
             isPublic: formData.get("isPublic") === "on",
         };
+
+        // Validation
+        if (!contestData.name || contestData.name.trim() === "") {
+            toast.error("Contest name is required");
+            return;
+        }
+        if (!contestData.startDate) {
+            toast.error("Start date is required");
+            return;
+        }
+        if (!contestData.endDate) {
+            toast.error("End date is required");
+            return;
+        }
+        if (new Date(contestData.endDate) <= new Date(contestData.startDate)) {
+            toast.error("End date must be after start date");
+            return;
+        }
+        if (selectedProblems.length === 0) {
+            toast.error("Please select at least one problem");
+            return;
+        }
+
+        console.log("Submitting contest data:", contestData);
 
         if (editingContest) {
             updateMutation.mutate({ contestId: editingContest._id, data: contestData });
@@ -77,6 +106,7 @@ function ContestManagement() {
 
     const handleEdit = (contest) => {
         setEditingContest(contest);
+        setSelectedProblems(contest.problems || []);
         setShowModal(true);
     };
 
@@ -84,6 +114,14 @@ function ContestManagement() {
         if (window.confirm("Are you sure you want to delete this contest? All submissions will also be deleted.")) {
             deleteMutation.mutate(contestId);
         }
+    };
+
+    const toggleProblem = (problemId) => {
+        setSelectedProblems(prev =>
+            prev.includes(problemId)
+                ? prev.filter(id => id !== problemId)
+                : [...prev, problemId]
+        );
     };
 
     return (
@@ -94,6 +132,7 @@ function ContestManagement() {
                     className="btn btn-primary"
                     onClick={() => {
                         setEditingContest(null);
+                        setSelectedProblems([]);
                         setShowModal(true);
                     }}
                 >
@@ -163,7 +202,7 @@ function ContestManagement() {
             {/* Create/Edit Modal */}
             {showModal && (
                 <div className="modal modal-open">
-                    <div className="modal-box max-w-2xl">
+                    <div className="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
                         <h3 className="font-bold text-lg mb-4">
                             {editingContest ? "Edit Contest" : "Create New Contest"}
                         </h3>
@@ -235,21 +274,37 @@ function ContestManagement() {
 
                             <div className="form-control">
                                 <label className="label">
-                                    <span className="label-text">Problems (select multiple)</span>
+                                    <span className="label-text">
+                                        Select Problems ({selectedProblems.length} selected)
+                                    </span>
                                 </label>
-                                <select
-                                    name="problems"
-                                    className="select select-bordered"
-                                    multiple
-                                    size={5}
-                                    defaultValue={editingContest?.problems || []}
-                                >
-                                    {problemsData?.problems?.map((problem) => (
-                                        <option key={problem.id} value={problem.id}>
-                                            {problem.id} - {problem.functionName}
-                                        </option>
-                                    ))}
-                                </select>
+                                {problemsLoading ? (
+                                    <div className="flex justify-center py-4">
+                                        <span className="loading loading-spinner"></span>
+                                    </div>
+                                ) : (
+                                    <div className="border border-base-300 rounded-lg p-4 max-h-60 overflow-y-auto space-y-2">
+                                        {problemsData?.problems?.map((problem) => (
+                                            <label
+                                                key={problem.id}
+                                                className="flex items-center gap-3 p-2 hover:bg-base-200 rounded cursor-pointer"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="checkbox checkbox-primary"
+                                                    checked={selectedProblems.includes(problem.id)}
+                                                    onChange={() => toggleProblem(problem.id)}
+                                                />
+                                                <div className="flex-1">
+                                                    <p className="font-semibold">{problem.title || problem.id}</p>
+                                                    <p className="text-sm text-base-content/60">
+                                                        {problem.difficulty} • {problem.category}
+                                                    </p>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-control">
@@ -271,6 +326,7 @@ function ContestManagement() {
                                     onClick={() => {
                                         setShowModal(false);
                                         setEditingContest(null);
+                                        setSelectedProblems([]);
                                     }}
                                 >
                                     Cancel
@@ -280,7 +336,11 @@ function ContestManagement() {
                                     className="btn btn-primary"
                                     disabled={createMutation.isLoading || updateMutation.isLoading}
                                 >
-                                    {editingContest ? "Update" : "Create"}
+                                    {createMutation.isLoading || updateMutation.isLoading
+                                        ? "Saving..."
+                                        : editingContest
+                                            ? "Update"
+                                            : "Create"}
                                 </button>
                             </div>
                         </form>

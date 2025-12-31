@@ -27,9 +27,10 @@ function ProblemPage() {
   const { getToken } = useAuth();
   const { data: profile } = useProfile();
 
-  const [currentProblemId, setCurrentProblemId] = useState("two-sum");
+  const [currentProblemId, setCurrentProblemId] = useState(id || "two-sum");
+  const [currentProblem, setCurrentProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [code, setCode] = useState(PROBLEMS[currentProblemId].starterCode.javascript);
+  const [code, setCode] = useState("");
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isSolved, setIsSolved] = useState(false);
@@ -41,41 +42,72 @@ function ProblemPage() {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [consoleHeight, setConsoleHeight] = useState(30);
+  const [isLoadingProblem, setIsLoadingProblem] = useState(true);
 
   const claimReward = useClaimProblemReward();
 
-  const currentProblem = PROBLEMS[currentProblemId];
   const contestId = new URLSearchParams(window.location.search).get("contestId");
 
   // Proctoring
   const { isLocked, strikeCount, unlock } = useProctoring(contestId);
 
+  // Fetch current problem from database
+  const fetchCurrentProblem = async (problemId) => {
+    setIsLoadingProblem(true);
+    try {
+      const response = await axiosInstance.get(`/problems/${problemId}`);
+      const problemData = response.data.problem;
+      setCurrentProblem(problemData);
+
+      // Set starter code if no saved submission
+      if (!code || code === "") {
+        const starterCode = problemData.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
+        setCode(starterCode);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch problem ${problemId}:`, error);
+      // Fallback to static if exists
+      if (PROBLEMS[problemId]) {
+        setCurrentProblem(PROBLEMS[problemId]);
+        const starterCode = PROBLEMS[problemId].starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
+        setCode(starterCode);
+      }
+    } finally {
+      setIsLoadingProblem(false);
+    }
+  };
+
   // update problem when URL param changes
   useEffect(() => {
-    if (id && PROBLEMS[id]) {
+    if (id) {
       setCurrentProblemId(id);
       setOutput(null);
       setSelectedSubmission(null);
+      fetchCurrentProblem(id);
       fetchSubmissions(id, selectedLanguage);
     }
   }, [id, contestId]);
 
   // Handle language change persistence separately
   useEffect(() => {
-    if (currentProblemId && id) {
+    if (currentProblemId && currentProblem) {
       const savedSubmission = submissions.find(s => s.language === selectedLanguage && s.status === "Accepted");
       if (savedSubmission) {
         console.log(`[Persistence] Loading saved ${selectedLanguage} code`);
         setCode(savedSubmission.code);
       } else {
-        setCode(PROBLEMS[id]?.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`);
+        const starterCode = currentProblem.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
+        setCode(starterCode);
       }
     }
-  }, [selectedLanguage]);
+  }, [selectedLanguage, currentProblem]);
 
   useEffect(() => {
     if (contestId) {
       fetchContestData();
+    } else if (!id) {
+      // Default problem for practice mode
+      fetchCurrentProblem("two-sum");
     }
   }, [contestId]);
 
@@ -99,9 +131,10 @@ function ProblemPage() {
       if (lastSuccessfulSolveForLanguage) {
         console.log(`[Persistence] Initial load: previous solution for ${lang || selectedLanguage}`);
         setCode(lastSuccessfulSolveForLanguage.code);
-      } else {
+      } else if (currentProblem) {
         // Fallback to starter code if no solve found
-        setCode(PROBLEMS[problemId].starterCode[lang || selectedLanguage]);
+        const starterCode = currentProblem.starterCode?.[lang || selectedLanguage] || `function solution() {\n  // Your code here\n}`;
+        setCode(starterCode);
       }
     } catch (e) {
       console.error("Failed to fetch submissions:", e);
@@ -116,7 +149,36 @@ function ProblemPage() {
       const response = await axiosInstance.get(`/contests/${contestId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setContestData(response.data);
+
+      const contest = response.data;
+
+      // Fetch full problem details for each problem in the contest
+      const problemsWithDetails = await Promise.all(
+        contest.problems.map(async (p) => {
+          try {
+            const problemResponse = await axiosInstance.get(`/problems/${p.problemId}`);
+            const problemData = problemResponse.data.problem;
+            return {
+              ...p,
+              title: problemData.title,
+              difficulty: problemData.difficulty,
+              category: problemData.category,
+            };
+          } catch (error) {
+            console.error(`Failed to fetch problem ${p.problemId}:`, error);
+            return {
+              ...p,
+              title: p.problemId, // Fallback to ID
+              difficulty: "Medium",
+            };
+          }
+        })
+      );
+
+      setContestData({
+        ...contest,
+        problems: problemsWithDetails
+      });
     } catch (e) {
       console.error("Failed to fetch contest metadata:", e);
     }
@@ -130,7 +192,11 @@ function ProblemPage() {
   };
 
   const handleProblemChange = (newProblemId) => {
-    const contestId = new URLSearchParams(window.location.search).get("contestId");
+    setCurrentProblemId(newProblemId);
+    setOutput(null);
+    setSelectedSubmission(null);
+    fetchCurrentProblem(newProblemId);
+    fetchSubmissions(newProblemId, selectedLanguage);
     navigate(`/problem/${newProblemId}${contestId ? `?contestId=${contestId}` : ""}`);
   };
 
@@ -269,6 +335,22 @@ function ProblemPage() {
     }
   };
 
+  if (isLoadingProblem || !currentProblem) {
+    return (
+      <div className="min-h-screen bg-base-100">
+        <Navbar />
+        <ProctoringOverlay
+          isLocked={isLocked}
+          strikeCount={strikeCount}
+          onUnlock={unlock}
+        />
+        <div className="flex items-center justify-center h-[calc(100vh-64px)]">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
@@ -289,8 +371,8 @@ function ProblemPage() {
               onProblemChange={handleProblemChange}
               allProblems={contestData ? contestData.problems.map(p => ({
                 id: p.problemId,
-                title: PROBLEMS[p.problemId]?.title || p.title || "Unknown",
-                difficulty: PROBLEMS[p.problemId]?.difficulty || p.difficulty || "Medium",
+                title: p.title || "Unknown",
+                difficulty: p.difficulty || "Medium",
                 score: p.score
               })) : Object.values(PROBLEMS)}
               contestId={contestId}

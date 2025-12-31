@@ -94,10 +94,18 @@ export const getAllUsers = async (req, res) => {
 export const getAllContests = async (req, res) => {
     try {
         const contests = await Contest.find()
-            .sort({ startDate: -1 })
-            .populate('createdBy', 'name email');
+            .sort({ createdAt: -1 });
 
-        res.status(200).json({ contests });
+        // Transform contests from DB format to frontend format
+        const transformedContests = contests.map(contest => ({
+            ...contest.toObject(),
+            name: contest.title,        // title → name
+            startDate: contest.startTime,  // startTime → startDate  
+            endDate: contest.endTime,      // endTime → endDate
+            problems: contest.problems.map(p => p.problemId), // Extract just IDs
+        }));
+
+        res.status(200).json({ contests: transformedContests });
     } catch (error) {
         console.error("Error fetching contests:", error);
         res.status(500).json({ message: "Failed to fetch contests" });
@@ -332,14 +340,19 @@ export const createContest = async (req, res) => {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
+        // Transform problems array to match schema {problemId, score}
+        const formattedProblems = (problems || []).map(problemId => ({
+            problemId: problemId,
+            score: 100
+        }));
+
         const contest = await Contest.create({
-            name,
+            title: name,  // Model uses 'title'
             description,
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
-            problems: problems || [],
-            isPublic: isPublic !== undefined ? isPublic : true,
-            createdBy: req.user._id,
+            startTime: new Date(startDate),  // Model uses 'startTime'
+            endTime: new Date(endDate),  // Model uses 'endTime'
+            problems: formattedProblems,
+            status: new Date(startDate) > new Date() ? 'upcoming' : 'active',
         });
 
         res.status(201).json({
@@ -348,6 +361,12 @@ export const createContest = async (req, res) => {
         });
     } catch (error) {
         console.error("Error creating contest:", error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: "Validation failed",
+                error: error.message
+            });
+        }
         res.status(500).json({ message: "Failed to create contest" });
     }
 };
@@ -358,11 +377,28 @@ export const createContest = async (req, res) => {
 export const updateContest = async (req, res) => {
     try {
         const { contestId } = req.params;
-        const updates = req.body;
+        const { name, description, startDate, endDate, problems } = req.body;
+
+        // Transform problems array
+        const formattedProblems = (problems || []).map(problemId => ({
+            problemId: problemId,
+            score: 100
+        }));
+
+        const updates = {
+            title: name,
+            description,
+            startTime: startDate ? new Date(startDate) : undefined,
+            endTime: endDate ? new Date(endDate) : undefined,
+            problems: formattedProblems,
+        };
+
+        // Remove undefined values
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
         const contest = await Contest.findByIdAndUpdate(
             contestId,
-            { ...updates },
+            updates,
             { new: true, runValidators: true }
         );
 

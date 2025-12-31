@@ -2,6 +2,7 @@ import { executeCode } from "../lib/executor.js";
 import { judgeCode } from "../lib/judge.js";
 import { PROBLEMS } from "../data/problems.js";
 import { calculateBenchmarks } from "../services/benchmarkService.js";
+import Problem from "../models/Problem.js";
 
 export const executeSubmission = async (req, res) => {
     try {
@@ -11,7 +12,22 @@ export const executeSubmission = async (req, res) => {
             return res.status(400).json({ message: "Language, code, and problemId are required" });
         }
 
-        const problem = PROBLEMS[problemId];
+        // Try to fetch problem from database first, fallback to static PROBLEMS
+        let problem;
+        try {
+            const dbProblem = await Problem.findOne({ id: problemId, isActive: true });
+            if (dbProblem) {
+                problem = dbProblem.toObject();
+                console.log(`[Executor] Using database problem: ${ problemId } `);
+            } else {
+                problem = PROBLEMS[problemId];
+                console.log(`[Executor] Using static problem: ${ problemId } `);
+            }
+        } catch (dbError) {
+            console.error(`[Executor] Database lookup failed, using static: `, dbError.message);
+            problem = PROBLEMS[problemId];
+        }
+
         if (!problem) {
             return res.status(404).json({ message: "Problem not found in judging database" });
         }
@@ -25,14 +41,14 @@ export const executeSubmission = async (req, res) => {
 
         const testCasesToRun = isSubmit ? problem.testCases : problem.testCases.slice(0, 3);
 
-        console.log(`[Executor] ${isSubmit ? 'Judging' : 'Running'} ${problemId} in ${language}`);
+        console.log(`[Executor] ${ isSubmit ? 'Judging' : 'Running' } ${ problemId } in ${ language } `);
         const result = await judgeCode(language, code, problem.functionName, testCasesToRun, {
             timeLimit: problem.timeLimit || 2000,
             memoryLimit: problem.memoryLimit || 128
         });
 
         if (result.status === "System Error") {
-            console.error(`[Executor] Judging System Error: ${result.error}`);
+            console.error(`[Executor] Judging System Error: ${ result.error } `);
             return res.status(500).json({ msg: "Judging System Error", detail: result.error });
         }
 
