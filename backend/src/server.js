@@ -27,6 +27,7 @@ import rewardRoutes from "./routes/rewardRoute.js";
 import adminRoutes from "./routes/adminRoute.js";
 import appealRoutes from "./routes/appealRoute.js";
 import problemRoutes from "./routes/problemRoute.js";
+import billingRoutes from "./routes/billingRoute.js";
 
 app.use(express.json());
 const allowedOrigin = env.CLIENT_URL || process.env.CLIENT_URL || "http://localhost:5173";
@@ -42,6 +43,7 @@ app.use("/api/rewards", rewardRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/appeals", appealRoutes);
 app.use("/api/problems", problemRoutes);
+app.use("/api/billing", billingRoutes);
 
 app.get("/api/health", (req, res) => {
     res.status(200).json({ msg: "Server is healthy", status: "success" });

@@ -11,6 +11,7 @@ import ContestsPage from "./pages/ContestsPage";
 import ContestDetailPage from "./pages/ContestDetailPage";
 import JoinPage from "./pages/JoinPage";
 import AdminPage from "./pages/AdminPage";
+import PremiumPage from "./pages/PremiumPage";
 import BanCheck from "./components/BanCheck";
 
 function App() {
@@ -48,6 +49,9 @@ function App() {
 
         {/* Admin route */}
         <Route path="/admin" element={isDevelopment || isSignedIn ? <AdminPage /> : <Navigate to={"/"} />} />
+
+        {/* Premium Page - accessible to all */}
+        <Route path="/premium" element={<PremiumPage />} />
       </Routes>
 
       <Toaster toastOptions={{ duration: 3000 }} />

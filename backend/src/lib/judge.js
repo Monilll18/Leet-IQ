@@ -49,7 +49,7 @@ ${userCode}
             });
         } catch (e) {
             results.push({ status: "Runtime Error", error: e.message });
-            break; // Stop on first error for security and speed
+            break;
         }
     }
     process.stdout.write(marker + JSON.stringify(results) + "\\n");
@@ -57,7 +57,7 @@ ${userCode}
 `;
 
         case "python":
-            const escapedCode = userCode.replace(/\\/g, "\\\\").replace(/"""/g, '\\"\\"\\"').replace(/'/g, "\\'");
+            const escapedCode = userCode.replace(/\\/g, "\\\\").replace(/"""/g, '\\"\\"\\"');
             return `
 import time
 import json
@@ -98,7 +98,7 @@ def run_judge():
             })
         except Exception as e:
             results.append({"status": "Runtime Error", "error": str(e)})
-            break # Stop on first fail
+            break
 
     print(marker + json.dumps(results))
 

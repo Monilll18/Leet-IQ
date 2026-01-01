@@ -60,6 +60,37 @@ const userSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        // Premium Subscription Fields
+        isPremium: {
+            type: Boolean,
+            default: false,
+        },
+        premiumPlan: {
+            type: String,
+            enum: ['monthly', 'yearly', null],
+            default: null,
+        },
+        premiumExpiresAt: {
+            type: Date,
+            default: null,
+        },
+        stripeCustomerId: {
+            type: String,
+            default: null,
+        },
+        stripeSubscriptionId: {
+            type: String,
+            default: null,
+        },
+        // Track daily problem solving for free tier limits
+        dailyProblemsSolved: {
+            type: Number,
+            default: 0,
+        },
+        lastProblemSolvedDate: {
+            type: Date,
+            default: null,
+        },
     },
     { timestamps: true } // createdAt, updatedAt
 );

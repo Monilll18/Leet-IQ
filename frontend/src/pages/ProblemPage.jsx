@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PROBLEMS } from "../data/problems";
 import Navbar from "../components/Navbar";
 import { useProfile } from "../hooks/useAuth";
 
@@ -43,6 +42,7 @@ function ProblemPage() {
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [consoleHeight, setConsoleHeight] = useState(30);
   const [isLoadingProblem, setIsLoadingProblem] = useState(true);
+  const [allProblems, setAllProblems] = useState([]);
 
   const claimReward = useClaimProblemReward();
 
@@ -102,12 +102,32 @@ function ProblemPage() {
     }
   }, [selectedLanguage, currentProblem]);
 
+  // Fetch all problems for practice mode navigation
+  const fetchAllProblems = async () => {
+    try {
+      const response = await axiosInstance.get('/problems');
+      const problems = response.data.problems || [];
+      setAllProblems(problems.map(p => ({
+        id: p.id,
+        title: p.title,
+        difficulty: p.difficulty,
+        category: p.category
+      })));
+    } catch (error) {
+      console.error('Failed to fetch problems list:', error);
+      setAllProblems([]);
+    }
+  };
+
   useEffect(() => {
     if (contestId) {
       fetchContestData();
-    } else if (!id) {
-      // Default problem for practice mode
-      fetchCurrentProblem("two-sum");
+    } else {
+      // Fetch problems for practice mode
+      fetchAllProblems();
+      if (!id) {
+        fetchCurrentProblem("two-sum");
+      }
     }
   }, [contestId]);
 
@@ -374,7 +394,7 @@ function ProblemPage() {
                 title: p.title || "Unknown",
                 difficulty: p.difficulty || "Medium",
                 score: p.score
-              })) : Object.values(PROBLEMS)}
+              })) : allProblems}
               contestId={contestId}
               submissions={submissions}
               isLoadingSubmissions={isLoadingSubmissions}

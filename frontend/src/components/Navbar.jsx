@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon, Coins, Flame, Bell, Check } from "lucide-react";
+import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon, Coins, Flame, Bell, Check, CrownIcon } from "lucide-react";
 import { UserButton, SignedIn, SignedOut, SignInButton } from "@clerk/clerk-react";
 import { useProfile } from "../hooks/useAuth";
+import { usePremium } from "../hooks/usePremium";
 import { PROBLEMS } from "../data/problems";
 import toast from "react-hot-toast";
 import { useDailyCheckIn } from "../hooks/useRewards";
@@ -16,6 +17,7 @@ function Navbar() {
   const [showStreakPopup, setShowStreakPopup] = useState(false);
   const popupRef = useRef(null);
   const streakPopupRef = useRef(null);
+  const { isPremium, dailyProblemsRemaining } = usePremium();
 
   useEffect(() => {
     if (profile) {
@@ -287,10 +289,21 @@ function Navbar() {
               </SignedOut>
             </div>
 
-            {/* 5. Premium Button */}
-            <button className="hidden sm:flex px-4 py-1.5 bg-[#FFF7E5] text-[#FFA116] rounded-full font-bold text-sm hover:bg-[#FFEEC2] transition-colors shadow-sm">
-              Premium
-            </button>
+            {/* 5. Premium Button or Badge */}
+            {isPremium ? (
+              <div className="hidden sm:flex px-3 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm items-center gap-1.5 shadow-lg">
+                <CrownIcon className="size-3.5" />
+                PRO
+              </div>
+            ) : (
+              <Link
+                to="/premium"
+                className="hidden sm:flex px-4 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm hover:from-amber-500 hover:to-orange-600 transition-all shadow-lg hover:shadow-amber-500/30 items-center gap-1"
+              >
+                <SparklesIcon className="size-3" />
+                Premium
+              </Link>
+            )}
           </div>
         </div>
       </div>
