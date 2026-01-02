@@ -54,23 +54,19 @@ function ProblemPage() {
   // Fetch current problem from database
   const fetchCurrentProblem = async (problemId) => {
     setIsLoadingProblem(true);
+    // Clear code immediately when switching problems
+    setCode("");
+
     try {
       const response = await axiosInstance.get(`/problems/${problemId}`);
       const problemData = response.data.problem;
       setCurrentProblem(problemData);
-
-      // Set starter code if no saved submission
-      if (!code || code === "") {
-        const starterCode = problemData.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
-        setCode(starterCode);
-      }
+      // Code sync handled by useEffect
     } catch (error) {
       console.error(`Failed to fetch problem ${problemId}:`, error);
       // Fallback to static if exists
       if (PROBLEMS[problemId]) {
         setCurrentProblem(PROBLEMS[problemId]);
-        const starterCode = PROBLEMS[problemId].starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
-        setCode(starterCode);
       }
     } finally {
       setIsLoadingProblem(false);
@@ -83,24 +79,29 @@ function ProblemPage() {
       setCurrentProblemId(id);
       setOutput(null);
       setSelectedSubmission(null);
+      setCode(""); // Clear code when problem changes
       fetchCurrentProblem(id);
       fetchSubmissions(id, selectedLanguage);
     }
   }, [id, contestId]);
 
-  // Handle language change persistence separately
+  // Handle code loading when problem or language changes
   useEffect(() => {
-    if (currentProblemId && currentProblem) {
+    // Only set code if we have a valid currentProblem that matches the currentProblemId
+    if (currentProblemId && currentProblem && currentProblem.id === currentProblemId) {
+      console.log(`[Code Sync] Loading code for problem: ${currentProblemId}, language: ${selectedLanguage}`);
+
       const savedSubmission = submissions.find(s => s.language === selectedLanguage && s.status === "Accepted");
       if (savedSubmission) {
-        console.log(`[Persistence] Loading saved ${selectedLanguage} code`);
+        console.log(`[Code Sync] Using saved submission`);
         setCode(savedSubmission.code);
       } else {
         const starterCode = currentProblem.starterCode?.[selectedLanguage] || `function solution() {\n  // Your code here\n}`;
+        console.log(`[Code Sync] Using starter code for ${currentProblem.title}`);
         setCode(starterCode);
       }
     }
-  }, [selectedLanguage, currentProblem]);
+  }, [currentProblemId, currentProblem, selectedLanguage, submissions]);
 
   // Fetch all problems for practice mode navigation
   const fetchAllProblems = async () => {
@@ -146,16 +147,7 @@ function ProblemPage() {
       const successfulSubmissions = allSubs.filter(s => s.status === "Accepted");
       setIsSolved(successfulSubmissions.length > 0);
 
-      // Persistence: Load the last accepted code for the current language if it exists
-      const lastSuccessfulSolveForLanguage = successfulSubmissions.find(s => s.language === (lang || selectedLanguage));
-      if (lastSuccessfulSolveForLanguage) {
-        console.log(`[Persistence] Initial load: previous solution for ${lang || selectedLanguage}`);
-        setCode(lastSuccessfulSolveForLanguage.code);
-      } else if (currentProblem) {
-        // Fallback to starter code if no solve found
-        const starterCode = currentProblem.starterCode?.[lang || selectedLanguage] || `function solution() {\n  // Your code here\n}`;
-        setCode(starterCode);
-      }
+      // NOTE: Code is set by fetchCurrentProblem, not here, to avoid race conditions
     } catch (e) {
       console.error("Failed to fetch submissions:", e);
     } finally {
@@ -212,11 +204,13 @@ function ProblemPage() {
   };
 
   const handleProblemChange = (newProblemId) => {
-    setCurrentProblemId(newProblemId);
+    // Clear code immediately to avoid showing old code
+    setCode("");
     setOutput(null);
     setSelectedSubmission(null);
-    fetchCurrentProblem(newProblemId);
-    fetchSubmissions(newProblemId, selectedLanguage);
+    setCurrentProblem(null); // Clear current problem to trigger loading state
+
+    // Navigate - this will trigger the useEffect which fetches new problem & submissions
     navigate(`/problem/${newProblemId}${contestId ? `?contestId=${contestId}` : ""}`);
   };
 
@@ -413,6 +407,7 @@ function ProblemPage() {
                   {/* Top panel - Code editor */}
                   <Panel defaultSize={70} minSize={30}>
                     <CodeEditorPanel
+                      key={`editor-${currentProblemId}-${selectedLanguage}`}
                       selectedLanguage={selectedLanguage}
                       code={code}
                       isRunning={isRunning}

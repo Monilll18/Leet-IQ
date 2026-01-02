@@ -1,16 +1,18 @@
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { ChevronRightIcon, Code2Icon, CheckCircle2Icon } from "lucide-react";
+import { ChevronRightIcon, Code2Icon, CheckCircle2Icon, LockIcon, BuildingIcon, CrownIcon, SparklesIcon } from "lucide-react";
 import { getDifficultyBadgeClass } from "../lib/utils";
 import { useState, useEffect } from "react";
 import axiosInstance from "../lib/axios";
 import { useAuth } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import { getAllProblemsPublic } from "../api/problems";
+import { usePremium } from "../hooks/usePremium";
 
 function ProblemsPage() {
   const [solvedIds, setSolvedIds] = useState(new Set());
   const { getToken } = useAuth();
+  const { isPremium, dailyProblemsRemaining, features } = usePremium();
 
   // Fetch problems from backend
   const { data: problemsData, isLoading: problemsLoading } = useQuery({
@@ -56,6 +58,25 @@ function ProblemsPage() {
           </p>
         </div>
 
+        {/* Daily Problem Limit Banner - Free Users Only */}
+        {!isPremium && (
+          <div className="alert mb-6 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+            <div className="flex items-center gap-3">
+              <SparklesIcon className="size-5 text-primary" />
+              <div>
+                <span className="font-bold">{dailyProblemsRemaining}</span> problems remaining today
+                {dailyProblemsRemaining === 0 && (
+                  <span className="text-error ml-2">— Limit reached!</span>
+                )}
+              </div>
+            </div>
+            <Link to="/premium" className="btn btn-sm btn-primary gap-2">
+              <CrownIcon className="size-4" />
+              Upgrade for Unlimited
+            </Link>
+          </div>
+        )}
+
         {/* Loading State */}
         {problemsLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -65,44 +86,81 @@ function ProblemsPage() {
           <>
             {/* PROBLEMS LIST */}
             <div className="space-y-4">
-              {problems.map((problem) => (
-                <Link
-                  key={problem.id}
-                  to={`/problem/${problem.id}`}
-                  className="card bg-base-100 hover:scale-[1.01] transition-transform"
-                >
-                  <div className="card-body">
-                    <div className="flex items-center justify-between gap-4">
-                      {/* LEFT SIDE */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Code2Icon className="size-6 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h2 className="text-xl font-bold">{problem.title || problem.id}</h2>
-                              {solvedIds.has(problem.id) && (
-                                <CheckCircle2Icon className="size-5 text-success" />
+              {problems.map((problem) => {
+                const isLocked = problem.isPremiumOnly && !isPremium;
+
+                return (
+                  <Link
+                    key={problem.id}
+                    to={isLocked ? "/premium" : `/problem/${problem.id}`}
+                    className={`card bg-base-100 hover:scale-[1.01] transition-transform ${isLocked ? 'opacity-75' : ''}`}
+                  >
+                    <div className="card-body">
+                      <div className="flex items-center justify-between gap-4">
+                        {/* LEFT SIDE */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`size-12 rounded-lg flex items-center justify-center ${isLocked ? 'bg-amber-500/10' : 'bg-primary/10'}`}>
+                              {isLocked ? (
+                                <LockIcon className="size-6 text-amber-500" />
+                              ) : (
+                                <Code2Icon className="size-6 text-primary" />
                               )}
-                              <span className={`badge ${getDifficultyBadgeClass(problem.difficulty || "Easy")}`}>
-                                {problem.difficulty || "Easy"}
-                              </span>
                             </div>
-                            <p className="text-sm text-base-content/60">{problem.category || "General"}</p>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h2 className="text-xl font-bold">{problem.title || problem.id}</h2>
+                                {solvedIds.has(problem.id) && (
+                                  <CheckCircle2Icon className="size-5 text-success" />
+                                )}
+                                <span className={`badge ${getDifficultyBadgeClass(problem.difficulty || "Easy")}`}>
+                                  {problem.difficulty || "Easy"}
+                                </span>
+                                {problem.isPremiumOnly && (
+                                  <span className="badge badge-warning gap-1">
+                                    <CrownIcon className="size-3" />
+                                    Premium
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm text-base-content/60">{problem.category || "General"}</p>
+                                {/* Company Tags - Premium Only */}
+                                {features.companyTags && problem.companyTags && problem.companyTags.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <BuildingIcon className="size-3 text-base-content/40" />
+                                    {problem.companyTags.slice(0, 3).map((tag, idx) => (
+                                      <span key={idx} className="badge badge-ghost badge-xs">{tag}</span>
+                                    ))}
+                                    {problem.companyTags.length > 3 && (
+                                      <span className="text-xs text-base-content/40">+{problem.companyTags.length - 3}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                          <p className="text-base-content/80 mb-3">{problem.description?.text || "No description available"}</p>
                         </div>
-                        <p className="text-base-content/80 mb-3">{problem.description?.text || "No description available"}</p>
-                      </div>
-                      {/* RIGHT SIDE */}
-                      <div className="flex items-center gap-2 text-primary">
-                        <span className="font-medium">Solve</span>
-                        <ChevronRightIcon className="size-5" />
+                        {/* RIGHT SIDE */}
+                        <div className="flex items-center gap-2 text-primary">
+                          {isLocked ? (
+                            <>
+                              <span className="font-medium text-amber-500">Unlock</span>
+                              <CrownIcon className="size-5 text-amber-500" />
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-medium">Solve</span>
+                              <ChevronRightIcon className="size-5" />
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
 
             {/* STATS FOOTER */}

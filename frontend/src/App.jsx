@@ -12,6 +12,7 @@ import ContestDetailPage from "./pages/ContestDetailPage";
 import JoinPage from "./pages/JoinPage";
 import AdminPage from "./pages/AdminPage";
 import PremiumPage from "./pages/PremiumPage";
+import SubscriptionSuccessPage from "./pages/SubscriptionSuccessPage";
 import BanCheck from "./components/BanCheck";
 
 function App() {
@@ -52,6 +53,9 @@ function App() {
 
         {/* Premium Page - accessible to all */}
         <Route path="/premium" element={<PremiumPage />} />
+
+        {/* Subscription Success - activates premium after checkout */}
+        <Route path="/subscription/success" element={isSignedIn ? <SubscriptionSuccessPage /> : <Navigate to={"/"} />} />
       </Routes>
 
       <Toaster toastOptions={{ duration: 3000 }} />

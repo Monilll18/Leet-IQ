@@ -66,6 +66,14 @@ const problemSchema = new mongoose.Schema(
         tags: [{
             type: String,
         }],
+        companyTags: [{
+            type: String,
+            enum: ['Google', 'Meta', 'Amazon', 'Apple', 'Microsoft', 'Netflix', 'Uber', 'Airbnb', 'Twitter', 'LinkedIn', 'Spotify', 'Adobe', 'Oracle', 'Salesforce', 'PayPal', 'Stripe', 'Bloomberg', 'Goldman Sachs', 'JPMorgan', 'Other'],
+        }],
+        isPremiumOnly: {
+            type: Boolean,
+            default: false,
+        },
         isActive: {
             type: Boolean,
             default: true,

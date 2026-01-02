@@ -20,6 +20,26 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Problem and difficulty are required" });
     }
 
+    // Check session creation limit for free users
+    const user = req.user;
+    const today = new Date().toDateString();
+    const lastSessionDate = user.lastSessionCreatedDate ? new Date(user.lastSessionCreatedDate).toDateString() : null;
+
+    // Reset daily count if it's a new day
+    let dailySessionsCreated = lastSessionDate === today ? (user.dailySessionsCreated || 0) : 0;
+
+    // Free users limited to 3 sessions/day
+    const FREE_SESSION_LIMIT = 3;
+    if (!user.isPremium && dailySessionsCreated >= FREE_SESSION_LIMIT) {
+      return res.status(403).json({
+        message: "Daily session limit reached",
+        error: "FREE_TIER_LIMIT",
+        dailyLimit: FREE_SESSION_LIMIT,
+        sessionsCreated: dailySessionsCreated,
+        upgradeRequired: true
+      });
+    }
+
     if (!streamClient || !chatClient) {
       return res
         .status(503)
@@ -41,6 +61,12 @@ export async function createSession(req, res) {
     // create session in db
     const session = await Session.create({ problem, difficulty, host: userId, callId, inviteCode });
     console.log("Session created in DB:", session._id, "Invite Code:", inviteCode);
+
+    // Update user's daily session count
+    await User.findByIdAndUpdate(userId, {
+      dailySessionsCreated: dailySessionsCreated + 1,
+      lastSessionCreatedDate: new Date()
+    });
 
     // create stream video call
     try {

@@ -91,6 +91,15 @@ const userSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        // Track daily session creation for free tier limits
+        dailySessionsCreated: {
+            type: Number,
+            default: 0,
+        },
+        lastSessionCreatedDate: {
+            type: Date,
+            default: null,
+        },
     },
     { timestamps: true } // createdAt, updatedAt
 );

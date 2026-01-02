@@ -291,10 +291,13 @@ function Navbar() {
 
             {/* 5. Premium Button or Badge */}
             {isPremium ? (
-              <div className="hidden sm:flex px-3 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm items-center gap-1.5 shadow-lg">
+              <Link
+                to="/premium"
+                className="hidden sm:flex px-3 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm items-center gap-1.5 shadow-lg hover:from-amber-500 hover:to-orange-600 transition-all"
+              >
                 <CrownIcon className="size-3.5" />
                 PRO
-              </div>
+              </Link>
             ) : (
               <Link
                 to="/premium"

@@ -27,6 +27,7 @@ export function usePremium() {
         plan: data?.plan || null,
         expiresAt: data?.expiresAt || null,
         dailyProblemsRemaining: data?.dailyProblemsRemaining ?? 5,
+        dailySessionsRemaining: data?.dailySessionsRemaining ?? 3,
         features: data?.features || {
             unlimitedProblems: false,
             hints: false,
@@ -34,7 +35,8 @@ export function usePremium() {
             privateContests: false,
             detailedAnalytics: false,
             adFree: false,
-            premiumBadge: false
+            premiumBadge: false,
+            submissionResults: false
         },
         isLoading,
         refetch

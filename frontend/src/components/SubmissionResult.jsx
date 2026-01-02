@@ -16,9 +16,12 @@ import {
 import axiosInstance from '../lib/axios';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
+import { usePremium } from '../hooks/usePremium';
+import PremiumLock from './PremiumLock';
 
 const SubmissionResult = ({ result, onBack }) => {
     const { getToken } = useAuth();
+    const { isPremium, features } = usePremium();
     const [showTestCases, setShowTestCases] = useState(false);
     const [notes, setNotes] = useState(result?.notes || "");
     const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -170,110 +173,117 @@ const SubmissionResult = ({ result, onBack }) => {
                 </div>
             )}
 
-            {/* Distribution Charts */}
+            {/* Distribution Charts - PREMIUM ONLY */}
             {isAccepted && benchmarks && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Runtime Distribution */}
-                    <div className="bg-base-200/30 rounded-3xl p-6 border border-base-300">
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                            <ZapIcon className="size-4 text-warning" />
-                            Runtime Distribution
-                        </h3>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={benchmarks.runtimeDistribution}>
-                                    <XAxis
-                                        dataKey="bin"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: 'currentColor', opacity: 0.4, fontSize: 12 }}
-                                        unit="ms"
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: 'white', opacity: 0.05 }}
-                                        content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
+                <PremiumLock
+                    isLocked={!isPremium}
+                    title="Detailed Performance Analytics"
+                    description="Upgrade to see runtime & memory distribution, percentile rankings, and compare with other users"
+                    size="lg"
+                >
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Runtime Distribution */}
+                        <div className="bg-base-200/30 rounded-3xl p-6 border border-base-300">
+                            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                <ZapIcon className="size-4 text-warning" />
+                                Runtime Distribution
+                            </h3>
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={benchmarks.runtimeDistribution}>
+                                        <XAxis
+                                            dataKey="bin"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'currentColor', opacity: 0.4, fontSize: 12 }}
+                                            unit="ms"
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'white', opacity: 0.05 }}
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    return (
+                                                        <div className="bg-base-300 border border-white/10 p-2 rounded-lg text-xs shadow-xl">
+                                                            <p className="font-bold">{payload[0].value} users</p>
+                                                            <p className="opacity-60">{payload[0].payload.bin}ms</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                            {benchmarks.runtimeDistribution.map((entry, index) => {
+                                                const binSize = benchmarks.runtimeBinSize || 5;
+                                                const userBin = Math.floor(result.runtime / binSize) * binSize;
+                                                const isUserBin = entry.bin === userBin;
                                                 return (
-                                                    <div className="bg-base-300 border border-white/10 p-2 rounded-lg text-xs shadow-xl">
-                                                        <p className="font-bold">{payload[0].value} users</p>
-                                                        <p className="opacity-60">{payload[0].payload.bin}ms</p>
-                                                    </div>
+                                                    <Cell
+                                                        key={`cell-${index}`}
+                                                        fill={isUserBin ? 'var(--color-warning, #fbbd23)' : 'currentColor'}
+                                                        opacity={isUserBin ? 1 : 0.2}
+                                                    />
                                                 );
-                                            }
-                                            return null;
-                                        }}
-                                    />
-                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                                        {benchmarks.runtimeDistribution.map((entry, index) => {
-                                            const binSize = benchmarks.runtimeBinSize || 5;
-                                            const userBin = Math.floor(result.runtime / binSize) * binSize;
-                                            const isUserBin = entry.bin === userBin;
-                                            return (
-                                                <Cell
-                                                    key={`cell-${index}`}
-                                                    fill={isUserBin ? 'var(--color-warning, #fbbd23)' : 'currentColor'}
-                                                    opacity={isUserBin ? 1 : 0.2}
-                                                />
-                                            );
-                                        })}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                            })}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Memory Distribution */}
-                    <div className="bg-base-200/30 rounded-3xl p-6 border border-base-300">
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                            <DatabaseIcon className="size-4 text-primary" />
-                            Memory Distribution
-                        </h3>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={benchmarks.memoryDistribution}>
-                                    <XAxis
-                                        dataKey="bin"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: 'currentColor', opacity: 0.4, fontSize: 10 }}
-                                        tickFormatter={(v) => (v / 1024 / 1024).toFixed(1) + "MB"}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: 'white', opacity: 0.05 }}
-                                        content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
-                                                const mem = payload[0].payload.bin;
-                                                const isKb = mem / 1024 / 1024 < 1;
-                                                const displayMem = isKb ? (mem / 1024).toFixed(1) + "KB" : (mem / 1024 / 1024).toFixed(1) + "MB";
+                        {/* Memory Distribution */}
+                        <div className="bg-base-200/30 rounded-3xl p-6 border border-base-300">
+                            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                <DatabaseIcon className="size-4 text-primary" />
+                                Memory Distribution
+                            </h3>
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={benchmarks.memoryDistribution}>
+                                        <XAxis
+                                            dataKey="bin"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'currentColor', opacity: 0.4, fontSize: 10 }}
+                                            tickFormatter={(v) => (v / 1024 / 1024).toFixed(1) + "MB"}
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'white', opacity: 0.05 }}
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const mem = payload[0].payload.bin;
+                                                    const isKb = mem / 1024 / 1024 < 1;
+                                                    const displayMem = isKb ? (mem / 1024).toFixed(1) + "KB" : (mem / 1024 / 1024).toFixed(1) + "MB";
+                                                    return (
+                                                        <div className="bg-base-300 border border-white/10 p-2 rounded-lg text-xs shadow-xl">
+                                                            <p className="font-bold">{payload[0].value} users</p>
+                                                            <p className="opacity-60">{displayMem}</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                            {benchmarks.memoryDistribution.map((entry, index) => {
+                                                const binSize = benchmarks.memoryBinSize || (1024 * 512);
+                                                const userBin = Math.floor(result.memory / binSize) * binSize;
+                                                const isUserBin = entry.bin === userBin;
                                                 return (
-                                                    <div className="bg-base-300 border border-white/10 p-2 rounded-lg text-xs shadow-xl">
-                                                        <p className="font-bold">{payload[0].value} users</p>
-                                                        <p className="opacity-60">{displayMem}</p>
-                                                    </div>
+                                                    <Cell
+                                                        key={`cell-${index}`}
+                                                        fill={isUserBin ? 'var(--color-primary, #641ae3)' : 'currentColor'}
+                                                        opacity={isUserBin ? 1 : 0.2}
+                                                    />
                                                 );
-                                            }
-                                            return null;
-                                        }}
-                                    />
-                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                                        {benchmarks.memoryDistribution.map((entry, index) => {
-                                            const binSize = benchmarks.memoryBinSize || (1024 * 512);
-                                            const userBin = Math.floor(result.memory / binSize) * binSize;
-                                            const isUserBin = entry.bin === userBin;
-                                            return (
-                                                <Cell
-                                                    key={`cell-${index}`}
-                                                    fill={isUserBin ? 'var(--color-primary, #641ae3)' : 'currentColor'}
-                                                    opacity={isUserBin ? 1 : 0.2}
-                                                />
-                                            );
-                                        })}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                                            })}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </PremiumLock>
             )}
 
             {/* Code and Notes Section */}

@@ -3,6 +3,7 @@ import { useAuth, useClerk } from "@clerk/clerk-react";
 import Navbar from "../components/Navbar";
 import PricingTable from "../components/PricingTable";
 import { usePremium } from "../hooks/usePremium";
+import axiosInstance from "../lib/axios";
 import {
     CheckIcon,
     XIcon,
@@ -90,7 +91,41 @@ const FAQ = [
 
 function PremiumPage() {
     const [expandedFaq, setExpandedFaq] = useState(null);
-    const { isPremium, plan } = usePremium();
+    const { isPremium, plan, refetch } = usePremium();
+    const { getToken } = useAuth();
+    const [activating, setActivating] = useState(false);
+
+    // Manual activation for local development (after Clerk checkout)
+    const handleActivatePremium = async () => {
+        console.log("[Premium] Activate button clicked");
+        try {
+            setActivating(true);
+            const token = await getToken();
+            console.log("[Premium] Got token:", token ? "YES" : "NO");
+
+            const response = await axiosInstance.post(
+                "/billing/sync-premium",
+                { activate: true, plan: "monthly" },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            console.log("[Premium] Response:", response.data);
+
+            if (response.data.success) {
+                console.log("[Premium] Success! Reloading page...");
+                await refetch();
+                window.location.reload();
+            } else {
+                console.error("[Premium] Error:", response.data);
+                alert("Activation failed: " + (response.data.message || "Unknown error"));
+            }
+        } catch (err) {
+            console.error("[Premium] Activation error:", err);
+            alert("Error: " + (err.response?.data?.message || err.message));
+        } finally {
+            setActivating(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-200">
@@ -127,6 +162,32 @@ function PremiumPage() {
             {/* Pricing Table Component */}
             <div className="max-w-5xl mx-auto px-4 py-8">
                 <PricingTable />
+
+                {/* Manual Activation Button - For Local Development */}
+                {!isPremium && (
+                    <div className="mt-8 p-6 bg-base-100 rounded-xl border border-primary/20 text-center">
+                        <p className="text-sm text-base-content/60 mb-4">
+                            🔧 <strong>After subscribing through Clerk</strong>, click below to activate your premium:
+                        </p>
+                        <button
+                            onClick={handleActivatePremium}
+                            disabled={activating}
+                            className="btn btn-primary btn-lg gap-2"
+                        >
+                            {activating ? (
+                                <>
+                                    <span className="loading loading-spinner loading-sm"></span>
+                                    Activating...
+                                </>
+                            ) : (
+                                <>
+                                    <CrownIcon className="size-5" />
+                                    Activate Premium Now
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Features Grid */}
