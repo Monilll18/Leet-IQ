@@ -150,6 +150,23 @@ function Navbar() {
             </div>
           </Link>
 
+          {/* STORE PAGE LINK */}
+          <Link
+            to={"/store"}
+            className={`px-4 py-2.5 rounded-lg transition-all duration-200 
+              ${isActive("/store")
+                ? "bg-primary text-primary-content"
+                : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
+              }
+              
+              `}
+          >
+            <div className="flex items-center gap-x-2.5">
+              <Coins className="size-4" />
+              <span className="font-medium hidden sm:inline">Store</span>
+            </div>
+          </Link>
+
           {/* Stats & Actions Area */}
           <div className="flex items-center gap-4 ml-6 relative">
             {/* 1. Notification Bell */}

@@ -174,7 +174,7 @@ const SubmissionResult = ({ result, onBack }) => {
             )}
 
             {/* Distribution Charts - PREMIUM ONLY */}
-            {isAccepted && benchmarks && (
+            {isAccepted && benchmarks && benchmarks.runtimeDistribution?.length > 0 && (
                 <PremiumLock
                     isLocked={!isPremium}
                     title="Detailed Performance Analytics"

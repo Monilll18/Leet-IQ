@@ -8,13 +8,22 @@ import {
   HistoryIcon,
   XCircleIcon,
   FileTextIcon,
-  FilterIcon
+  FilterIcon,
+  LockIcon,
+  TagIcon,
+  BuildingIcon,
+  LightbulbIcon,
+  ChevronDownIcon,
+  CrownIcon
 } from "lucide-react";
 import { getDifficultyBadgeClass } from "../lib/utils";
 import axiosInstance from "../lib/axios";
 import { useAuth } from "@clerk/clerk-react";
 import SubmissionResult from "./SubmissionResult";
 import confetti from "canvas-confetti";
+import { usePremium } from "../hooks/usePremium";
+import { Link } from "react-router-dom";
+import PremiumLock from "./PremiumLock";
 
 function SparklesIcon({ size, className }) {
   return (
@@ -44,13 +53,20 @@ function ProblemDescription({
   submissions = [],
   isLoadingSubmissions = false,
   selectedSubmission,
-  setSelectedSubmission
+  setSelectedSubmission,
+  isPremiumLocked = false
 }) {
   const [activeTab, setActiveTab] = useState("description");
   const [statusFilter, setStatusFilter] = useState("all");
   const [langFilter, setLangFilter] = useState("all");
   const [solvedIds, setSolvedIds] = useState(new Set());
+  const [expandedSections, setExpandedSections] = useState({});
   const { getToken } = useAuth();
+  const { isPremium, features } = usePremium();
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const fetchSolvedIds = async () => {
     try {
@@ -236,169 +252,279 @@ function ProblemDescription({
       </div>
 
       {/* TAB CONTENT */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "description" ? (
-          <div className="p-6 space-y-8 animate-in fade-in duration-300">
-            {/* Title Section */}
-            <div className="space-y-4">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <h1 className="text-3xl font-black text-base-content">{problem.title}</h1>
-                  {isSolved && (
-                    <div className="flex items-center gap-1.5 text-success font-bold text-xs">
-                      <CheckCircle2Icon className="size-3" />
-                      SOLVED
-                    </div>
-                  )}
+      <div className="flex-1 overflow-y-auto relative">
+        <PremiumLock
+          isLocked={isPremiumLocked}
+          title="Subscribe to unlock"
+          description="Thanks for using LeetIQ! To view this question you must subscribe to premium."
+          size="lg"
+        >
+          {activeTab === "description" ? (
+            <div className="p-6 space-y-8 animate-in fade-in duration-300">
+              {/* Title Section */}
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl font-black text-base-content">{problem.title}</h1>
+                    {isSolved && (
+                      <div className="flex items-center gap-1.5 text-success font-bold text-xs">
+                        <CheckCircle2Icon className="size-3" />
+                        SOLVED
+                      </div>
+                    )}
+                  </div>
+                  <span className={`badge badge-lg font-bold rounded-xl ${getDifficultyBadgeClass(problem.difficulty)}`}>
+                    {problem.difficulty}
+                  </span>
                 </div>
-                <span className={`badge badge-lg font-bold rounded-xl ${getDifficultyBadgeClass(problem.difficulty)}`}>
-                  {problem.difficulty}
-                </span>
+                <p className="text-base-content/80 text-lg leading-relaxed">{problem.description.text}</p>
+                {problem.description.notes && (
+                  <div className="space-y-2">
+                    {problem.description.notes.map((note, idx) => (
+                      <p key={idx} className="text-base-content/60 italic text-sm">{note}</p>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p className="text-base-content/80 text-lg leading-relaxed">{problem.description.text}</p>
-              {problem.description.notes && (
-                <div className="space-y-2">
-                  {problem.description.notes.map((note, idx) => (
-                    <p key={idx} className="text-base-content/60 italic text-sm">{note}</p>
+
+              {/* Examples Section */}
+              <div className="space-y-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <SparklesIcon size={20} className="text-primary" />
+                  Examples
+                </h2>
+                <div className="space-y-6">
+                  {problem.examples.map((ex, idx) => (
+                    <div key={idx} className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-base-content/60">
+                        <span className="bg-base-200 px-2 py-0.5 rounded-md">Example {idx + 1}</span>
+                      </div>
+                      <div className="card bg-base-200 border border-base-300 rounded-2xl overflow-hidden font-mono text-sm">
+                        <div className="p-4 space-y-2">
+                          <div className="flex gap-4">
+                            <span className="text-primary font-bold min-w-[70px]">Input:</span>
+                            <span className="break-all">{ex.input}</span>
+                          </div>
+                          <div className="flex gap-4">
+                            <span className="text-secondary font-bold min-w-[70px]">Output:</span>
+                            <span>{ex.output}</span>
+                          </div>
+                          {ex.explanation && (
+                            <div className="mt-2 pt-2 border-t border-base-300 text-xs text-base-content/60 italic">
+                              <span className="font-bold font-sans">Explanation:</span> {ex.explanation}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Examples Section */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <SparklesIcon size={20} className="text-primary" />
-                Examples
-              </h2>
-              <div className="space-y-6">
-                {problem.examples.map((ex, idx) => (
-                  <div key={idx} className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-bold text-base-content/60">
-                      <span className="bg-base-200 px-2 py-0.5 rounded-md">Example {idx + 1}</span>
+              {/* ConstraintsSection */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Constraints</h2>
+                <div className="flex flex-wrap gap-2">
+                  {problem.constraints.map((c, i) => (
+                    <code key={i} className="bg-base-200 border border-base-300 px-3 py-1.5 rounded-xl text-sm font-mono text-primary">
+                      {c}
+                    </code>
+                  ))}
+                </div>
+              </div>
+
+              {/* PREMIUM SECTIONS: Topics, Companies, Hints */}
+              <div className="space-y-2 border-t border-base-300 pt-6">
+                {/* Topics Section */}
+                {problem.tags && problem.tags.length > 0 && (
+                  <div className="collapse collapse-arrow bg-base-200 rounded-xl">
+                    <input
+                      type="checkbox"
+                      checked={expandedSections.topics || false}
+                      onChange={() => toggleSection('topics')}
+                    />
+                    <div className="collapse-title flex items-center gap-2 font-medium">
+                      <TagIcon className="size-4 text-primary" />
+                      Topics
                     </div>
-                    <div className="card bg-base-200 border border-base-300 rounded-2xl overflow-hidden font-mono text-sm">
-                      <div className="p-4 space-y-2">
-                        <div className="flex gap-4">
-                          <span className="text-primary font-bold min-w-[70px]">Input:</span>
-                          <span className="break-all">{ex.input}</span>
-                        </div>
-                        <div className="flex gap-4">
-                          <span className="text-secondary font-bold min-w-[70px]">Output:</span>
-                          <span>{ex.output}</span>
-                        </div>
-                        {ex.explanation && (
-                          <div className="mt-2 pt-2 border-t border-base-300 text-xs text-base-content/60 italic">
-                            <span className="font-bold font-sans">Explanation:</span> {ex.explanation}
-                          </div>
-                        )}
+                    <div className="collapse-content">
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {problem.tags.map((tag, i) => (
+                          <span key={i} className="badge badge-outline badge-primary">{tag}</span>
+                        ))}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Companies Section - Premium Only */}
+                <div className="collapse collapse-arrow bg-base-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    checked={expandedSections.companies || false}
+                    onChange={() => toggleSection('companies')}
+                    disabled={!isPremium}
+                  />
+                  <div className="collapse-title flex items-center gap-2 font-medium">
+                    {!isPremium && <LockIcon className="size-4 text-amber-500" />}
+                    {isPremium && <BuildingIcon className="size-4 text-amber-500" />}
+                    <span className={!isPremium ? "text-amber-500" : ""}>Companies</span>
+                    {!isPremium && (
+                      <span className="badge badge-warning badge-sm gap-1 ml-auto mr-6">
+                        <CrownIcon className="size-3" /> Premium
+                      </span>
+                    )}
+                  </div>
+                  <div className="collapse-content">
+                    {isPremium ? (
+                      problem.companyTags && problem.companyTags.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {problem.companyTags.map((company, i) => (
+                            <span key={i} className="badge badge-ghost">{company}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-base-content/50 pt-2">No company tags for this problem</p>
+                      )
+                    ) : (
+                      <div className="pt-2">
+                        <Link to="/premium" className="btn btn-warning btn-sm gap-2">
+                          <LockIcon className="size-3" />
+                          Upgrade to Premium
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hints Section - Premium Only */}
+                {[1, 2, 3].map((hintNum) => (
+                  <div key={hintNum} className="collapse collapse-arrow bg-base-200 rounded-xl">
+                    <input
+                      type="checkbox"
+                      checked={expandedSections[`hint${hintNum}`] || false}
+                      onChange={() => toggleSection(`hint${hintNum}`)}
+                      disabled={!isPremium}
+                    />
+                    <div className="collapse-title flex items-center gap-2 font-medium">
+                      {!isPremium && <LockIcon className="size-4 text-amber-500" />}
+                      {isPremium && <LightbulbIcon className="size-4 text-info" />}
+                      <span className={!isPremium ? "text-amber-500" : ""}>Hint {hintNum}</span>
+                      {!isPremium && (
+                        <span className="badge badge-warning badge-sm gap-1 ml-auto mr-6">
+                          <CrownIcon className="size-3" /> Premium
+                        </span>
+                      )}
+                    </div>
+                    <div className="collapse-content">
+                      {isPremium ? (
+                        problem.hints && problem.hints[hintNum - 1] ? (
+                          <p className="text-sm text-base-content/80 pt-2">{problem.hints[hintNum - 1]}</p>
+                        ) : (
+                          <p className="text-sm text-base-content/50 pt-2">No hint available</p>
+                        )
+                      ) : (
+                        <div className="pt-2">
+                          <Link to="/premium" className="btn btn-warning btn-sm gap-2">
+                            <LockIcon className="size-3" />
+                            Upgrade to Premium
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+          ) : (
+            <div className="p-4 space-y-4 animate-in slide-in-from-right duration-300">
+              {/* Filters */}
+              <div className="flex items-center gap-2 mb-6">
+                <FilterIcon className="size-4 text-base-content/40" />
+                <select
+                  className="select select-sm select-bordered rounded-xl text-xs"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="completed">Accepted</option>
+                  <option value="error">Errors</option>
+                </select>
+                <select
+                  className="select select-sm select-bordered rounded-xl text-xs"
+                  value={langFilter}
+                  onChange={(e) => setLangFilter(e.target.value)}
+                >
+                  <option value="all">All Langs</option>
+                  <option value="javascript">Javascript</option>
+                  <option value="python">Python</option>
+                  <option value="java">Java</option>
+                </select>
+              </div>
 
-            {/* ConstraintsSection */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold">Constraints</h2>
-              <div className="flex flex-wrap gap-2">
-                {problem.constraints.map((c, i) => (
-                  <code key={i} className="bg-base-200 border border-base-300 px-3 py-1.5 rounded-xl text-sm font-mono text-primary">
-                    {c}
-                  </code>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 space-y-4 animate-in slide-in-from-right duration-300">
-            {/* Filters */}
-            <div className="flex items-center gap-2 mb-6">
-              <FilterIcon className="size-4 text-base-content/40" />
-              <select
-                className="select select-sm select-bordered rounded-xl text-xs"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="completed">Accepted</option>
-                <option value="error">Errors</option>
-              </select>
-              <select
-                className="select select-sm select-bordered rounded-xl text-xs"
-                value={langFilter}
-                onChange={(e) => setLangFilter(e.target.value)}
-              >
-                <option value="all">All Langs</option>
-                <option value="javascript">Javascript</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-              </select>
-            </div>
-
-            {isLoadingSubmissions ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                <span className="loading loading-spinner loading-md text-primary"></span>
-                <p className="text-sm text-base-content/40">Loading history...</p>
-              </div>
-            ) : filteredSubmissions.length === 0 ? (
-              <div className="text-center py-12 text-base-content/40 italic flex flex-col items-center">
-                <HistoryIcon className="size-12 mb-3 opacity-20" />
-                No submissions found
-              </div>
-            ) : (
-              <div className="bg-base-100 border border-base-300 rounded-2xl overflow-hidden shadow-sm">
-                <table className="table w-full border-collapse">
-                  <thead>
-                    <tr className="bg-base-200/50 text-base-content/50 border-b border-base-300">
-                      <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Status</th>
-                      <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Language</th>
-                      <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Runtime</th>
-                      <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-base-300">
-                    {filteredSubmissions.map((s) => (
-                      <tr
-                        key={s._id}
-                        className="hover:bg-primary/5 transition-colors group cursor-pointer"
-                        onClick={() => setSelectedSubmission(s)}
-                      >
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            {s.status === "Accepted" ? (
-                              <CheckCircle2Icon className="size-4 text-success" />
-                            ) : (
-                              <XCircleIcon className="size-4 text-error" />
-                            )}
-                            <span className={`font-black text-sm tracking-tight ${s.status === "Accepted" ? "text-success" : "text-error"}`}>
-                              {s.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-xs font-bold opacity-60">
-                          <code className="bg-base-300/50 px-2 py-1 rounded text-primary">{s.language}</code>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-mono font-bold text-base-content/80 group-hover:text-primary transition-colors">{s.runtime || 0} ms</span>
-                            <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest">Memory: {(s.memory / 1024 / 1024).toFixed(1)}MB</span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <span className="text-[10px] font-bold opacity-30 whitespace-nowrap">
-                            {new Date(s.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </td>
+              {isLoadingSubmissions ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <span className="loading loading-spinner loading-md text-primary"></span>
+                  <p className="text-sm text-base-content/40">Loading history...</p>
+                </div>
+              ) : filteredSubmissions.length === 0 ? (
+                <div className="text-center py-12 text-base-content/40 italic flex flex-col items-center">
+                  <HistoryIcon className="size-12 mb-3 opacity-20" />
+                  No submissions found
+                </div>
+              ) : (
+                <div className="bg-base-100 border border-base-300 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="table w-full border-collapse">
+                    <thead>
+                      <tr className="bg-base-200/50 text-base-content/50 border-b border-base-300">
+                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Status</th>
+                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Language</th>
+                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Runtime</th>
+                        <th className="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-left">Time</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                    </thead>
+                    <tbody className="divide-y divide-base-300">
+                      {filteredSubmissions.map((s) => (
+                        <tr
+                          key={s._id}
+                          className="hover:bg-primary/5 transition-colors group cursor-pointer"
+                          onClick={() => setSelectedSubmission(s)}
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              {s.status === "Accepted" ? (
+                                <CheckCircle2Icon className="size-4 text-success" />
+                              ) : (
+                                <XCircleIcon className="size-4 text-error" />
+                              )}
+                              <span className={`font-black text-sm tracking-tight ${s.status === "Accepted" ? "text-success" : "text-error"}`}>
+                                {s.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-xs font-bold opacity-60">
+                            <code className="bg-base-300/50 px-2 py-1 rounded text-primary">{s.language}</code>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-mono font-bold text-base-content/80 group-hover:text-primary transition-colors">{s.runtime || 0} ms</span>
+                              <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest">Memory: {(s.memory / 1024 / 1024).toFixed(1)}MB</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <span className="text-[10px] font-bold opacity-30 whitespace-nowrap">
+                              {new Date(s.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </PremiumLock>
       </div>
       {/* CONTEST COMPLETE MODAL */}
       <dialog id="contest_complete_modal" className="modal modal-bottom sm:modal-middle">

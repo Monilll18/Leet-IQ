@@ -12,7 +12,7 @@ function generateInviteCode() {
 
 export async function createSession(req, res) {
   try {
-    const { problem, difficulty } = req.body;
+    const { problem, difficulty, isPrivate } = req.body;
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -59,8 +59,8 @@ export async function createSession(req, res) {
     }
 
     // create session in db
-    const session = await Session.create({ problem, difficulty, host: userId, callId, inviteCode });
-    console.log("Session created in DB:", session._id, "Invite Code:", inviteCode);
+    const session = await Session.create({ problem, difficulty, host: userId, callId, inviteCode, isPrivate: isPrivate || false });
+    console.log("Session created in DB:", session._id, "Invite Code:", inviteCode, "Private:", isPrivate);
 
     // Update user's daily session count
     await User.findByIdAndUpdate(userId, {
@@ -179,6 +179,7 @@ export async function getSessionById(req, res) {
 export async function joinSession(req, res) {
   try {
     const { id } = req.params;
+    const { inviteCode } = req.body; // Optional: required for private sessions
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -190,22 +191,36 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Cannot join a completed session" });
     }
 
-    // Check if user is the host
+    // Check if user is the host - always allow
     if (session.host.toString() === userId.toString()) {
-      // Host is already in the session, just return populated session
       const populatedSession = await Session.findById(id)
         .populate("host", "name email profileImage clerkId")
         .populate("participant", "name email profileImage clerkId");
       return res.status(200).json({ session: populatedSession });
     }
 
-    // Check if user is already the participant
+    // Check if user is already the participant - always allow rejoin
     if (session.participant && session.participant.toString() === userId.toString()) {
-      // User is already participant, just return populated session
       const populatedSession = await Session.findById(id)
         .populate("host", "name email profileImage clerkId")
         .populate("participant", "name email profileImage clerkId");
       return res.status(200).json({ session: populatedSession });
+    }
+
+    // For private sessions, verify invite code
+    if (session.isPrivate) {
+      if (!inviteCode) {
+        return res.status(403).json({
+          message: "This is a private session. Please enter the invite code to join.",
+          requiresCode: true
+        });
+      }
+      if (inviteCode !== session.inviteCode) {
+        return res.status(403).json({
+          message: "Invalid invite code",
+          requiresCode: true
+        });
+      }
     }
 
     // check if session is already full - has a different participant

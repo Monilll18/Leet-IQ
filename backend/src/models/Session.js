@@ -36,6 +36,10 @@ const sessionSchema = new mongoose.Schema(
             unique: true,
             required: true,
         },
+        isPrivate: {
+            type: Boolean,
+            default: false,
+        },
     },
     { timestamps: true }
 );

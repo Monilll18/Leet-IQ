@@ -60,6 +60,13 @@ const problemSchema = new mongoose.Schema(
             java: String,
             cpp: String,
         },
+        // Metadata for judging type conversion
+        structure: {
+            // e.g. ["ListNode", "int"]
+            argTypes: [{ type: String }],
+            // e.g. "ListNode"
+            returnType: { type: String }
+        },
         hints: [{
             type: String,
         }],
@@ -77,6 +84,12 @@ const problemSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true,
+        },
+        // Dynamic Difficulty Stats
+        stats: {
+            totalSubmissions: { type: Number, default: 0 },
+            totalAccepted: { type: Number, default: 0 },
+            acceptanceRate: { type: Number, default: 0 }
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,

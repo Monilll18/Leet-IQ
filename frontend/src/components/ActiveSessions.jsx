@@ -6,104 +6,224 @@ import {
   UsersIcon,
   ZapIcon,
   LoaderIcon,
+  LockIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getDifficultyBadgeClass } from "../lib/utils";
+import { useState } from "react";
+import { useJoinSession } from "../hooks/useSessions";
 
 function ActiveSessions({ sessions, isLoading, isUserInSession }) {
+  const navigate = useNavigate();
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [inviteCode, setInviteCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+
+  const joinSessionMutation = useJoinSession();
+
+  const handleJoinClick = (session) => {
+    // If user is already in session (host or participant), navigate directly
+    if (isUserInSession(session)) {
+      navigate(`/session/${session._id}`);
+      return;
+    }
+
+    // If session is private, show code modal
+    if (session.isPrivate) {
+      setSelectedSession(session);
+      setInviteCode("");
+      setCodeError("");
+      setShowCodeModal(true);
+    } else {
+      // Public session - join directly
+      joinSessionMutation.mutate(
+        { id: session._id, inviteCode: null },
+        {
+          onSuccess: () => navigate(`/session/${session._id}`),
+        }
+      );
+    }
+  };
+
+  const handleCodeSubmit = () => {
+    if (!inviteCode.trim()) {
+      setCodeError("Please enter the invite code");
+      return;
+    }
+
+    joinSessionMutation.mutate(
+      { id: selectedSession._id, inviteCode: inviteCode.trim() },
+      {
+        onSuccess: () => {
+          setShowCodeModal(false);
+          navigate(`/session/${selectedSession._id}`);
+        },
+        onError: (error) => {
+          setCodeError(error.response?.data?.message || "Invalid invite code");
+        },
+      }
+    );
+  };
+
   return (
-    <div className="lg:col-span-2 card bg-base-100 border-2 border-primary/20 hover:border-primary/30 h-full">
-      <div className="card-body">
-        {/* HEADERS SECTION */}
-        <div className="flex items-center justify-between mb-6">
-          {/* TITLE AND ICON */}
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl">
-              <ZapIcon className="size-5" />
+    <>
+      <div className="lg:col-span-2 card bg-base-100 border-2 border-primary/20 hover:border-primary/30 h-full">
+        <div className="card-body">
+          {/* HEADERS SECTION */}
+          <div className="flex items-center justify-between mb-6">
+            {/* TITLE AND ICON */}
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl">
+                <ZapIcon className="size-5" />
+              </div>
+              <h2 className="text-2xl font-black">Live Sessions</h2>
             </div>
-            <h2 className="text-2xl font-black">Live Sessions</h2>
+
+            <div className="flex items-center gap-2">
+              <div className="size-2 bg-success rounded-full" />
+              <span className="text-sm font-medium text-success">{sessions.length} active</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="size-2 bg-success rounded-full" />
-            <span className="text-sm font-medium text-success">{sessions.length} active</span>
-          </div>
-        </div>
-
-        {/* SESSIONS LIST */}
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <LoaderIcon className="size-10 animate-spin text-primary" />
-            </div>
-          ) : sessions.length > 0 ? (
-            sessions.map((session) => (
-              <div
-                key={session._id}
-                className="card bg-base-200 border-2 border-base-300 hover:border-primary/50"
-              >
-                <div className="flex items-center justify-between gap-4 p-5">
-                  {/* LEFT SIDE */}
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="relative size-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                      <Code2Icon className="size-7 text-white" />
-                      <div className="absolute -top-1 -right-1 size-4 bg-success rounded-full border-2 border-base-100" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-bold text-lg truncate">{session.problem}</h3>
-                        <span
-                          className={`badge badge-sm ${getDifficultyBadgeClass(
-                            session.difficulty
-                          )}`}
-                        >
-                          {session.difficulty.slice(0, 1).toUpperCase() +
-                            session.difficulty.slice(1)}
-                        </span>
+          {/* SESSIONS LIST */}
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <LoaderIcon className="size-10 animate-spin text-primary" />
+              </div>
+            ) : sessions.length > 0 ? (
+              sessions.map((session) => (
+                <div
+                  key={session._id}
+                  className="card bg-base-200 border-2 border-base-300 hover:border-primary/50"
+                >
+                  <div className="flex items-center justify-between gap-4 p-5">
+                    {/* LEFT SIDE */}
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="relative size-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                        <Code2Icon className="size-7 text-white" />
+                        <div className="absolute -top-1 -right-1 size-4 bg-success rounded-full border-2 border-base-100" />
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm opacity-80">
-                        <div className="flex items-center gap-1.5">
-                          <CrownIcon className="size-4" />
-                          <span className="font-medium">{session.host?.name}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-bold text-lg truncate">{session.problem}</h3>
+                          <span
+                            className={`badge badge-sm ${getDifficultyBadgeClass(
+                              session.difficulty
+                            )}`}
+                          >
+                            {session.difficulty.slice(0, 1).toUpperCase() +
+                              session.difficulty.slice(1)}
+                          </span>
+                          {session.isPrivate && (
+                            <span className="badge badge-sm badge-warning gap-1">
+                              <LockIcon className="size-3" />
+                              Private
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <UsersIcon className="size-4" />
-                          <span className="text-xs">{session.participant ? "2/2" : "1/2"}</span>
+
+                        <div className="flex items-center gap-4 text-sm opacity-80">
+                          <div className="flex items-center gap-1.5">
+                            <CrownIcon className="size-4" />
+                            <span className="font-medium">{session.host?.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <UsersIcon className="size-4" />
+                            <span className="text-xs">{session.participant ? "2/2" : "1/2"}</span>
+                          </div>
+                          {session.participant && !isUserInSession(session) ? (
+                            <span className="badge badge-error badge-sm">FULL</span>
+                          ) : (
+                            <span className="badge badge-success badge-sm">OPEN</span>
+                          )}
                         </div>
-                        {session.participant && !isUserInSession(session) ? (
-                          <span className="badge badge-error badge-sm">FULL</span>
+                      </div>
+                    </div>
+
+                    {session.participant && !isUserInSession(session) ? (
+                      <button className="btn btn-disabled btn-sm">Full</button>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm gap-2"
+                        onClick={() => handleJoinClick(session)}
+                        disabled={joinSessionMutation.isPending}
+                      >
+                        {joinSessionMutation.isPending ? (
+                          <LoaderIcon className="size-4 animate-spin" />
                         ) : (
-                          <span className="badge badge-success badge-sm">OPEN</span>
+                          <>
+                            {isUserInSession(session) ? "Rejoin" : session.isPrivate ? "Enter Code" : "Join"}
+                            <ArrowRightIcon className="size-4" />
+                          </>
                         )}
-                      </div>
-                    </div>
+                      </button>
+                    )}
                   </div>
-
-                  {session.participant && !isUserInSession(session) ? (
-                    <button className="btn btn-disabled btn-sm">Full</button>
-                  ) : (
-                    <Link to={`/session/${session._id}`} className="btn btn-primary btn-sm gap-2">
-                      {isUserInSession(session) ? "Rejoin" : "Join"}
-                      <ArrowRightIcon className="size-4" />
-                    </Link>
-                  )}
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl flex items-center justify-center">
+                  <SparklesIcon className="w-10 h-10 text-primary/50" />
+                </div>
+                <p className="text-lg font-semibold opacity-70 mb-1">No active sessions</p>
+                <p className="text-sm opacity-50">Be the first to create one!</p>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl flex items-center justify-center">
-                <SparklesIcon className="w-10 h-10 text-primary/50" />
-              </div>
-              <p className="text-lg font-semibold opacity-70 mb-1">No active sessions</p>
-              <p className="text-sm opacity-50">Be the first to create one!</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* INVITE CODE MODAL */}
+      {showCodeModal && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <LockIcon className="size-5" />
+              Private Session
+            </h3>
+            <p className="py-4 text-sm opacity-70">
+              This session is private. Enter the invite code to join.
+            </p>
+
+            <input
+              type="text"
+              placeholder="Enter invite code (e.g., abc-defg-hij)"
+              className={`input input-bordered w-full ${codeError ? 'input-error' : ''}`}
+              value={inviteCode}
+              onChange={(e) => {
+                setInviteCode(e.target.value);
+                setCodeError("");
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleCodeSubmit()}
+            />
+            {codeError && <p className="text-error text-sm mt-2">{codeError}</p>}
+
+            <div className="modal-action">
+              <button className="btn btn-ghost" onClick={() => setShowCodeModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary gap-2"
+                onClick={handleCodeSubmit}
+                disabled={joinSessionMutation.isPending}
+              >
+                {joinSessionMutation.isPending ? (
+                  <LoaderIcon className="size-4 animate-spin" />
+                ) : (
+                  <ArrowRightIcon className="size-4" />
+                )}
+                Join Session
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowCodeModal(false)}></div>
+        </div>
+      )}
+    </>
   );
 }
 export default ActiveSessions;

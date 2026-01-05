@@ -9,6 +9,7 @@ import StatsCards from "../components/StatsCards";
 import ActiveSessions from "../components/ActiveSessions";
 import RecentSessions from "../components/RecentSessions";
 import CreateSessionModal from "../components/CreateSessionModal";
+import LimitReachedModal from "../components/LimitReachedModal";
 import { useProfile } from "../hooks/useAuth";
 import { useDailyCheckIn } from "../hooks/useRewards";
 import { useEffect } from "react";
@@ -17,7 +18,8 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roomConfig, setRoomConfig] = useState({ problem: "", difficulty: "" });
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [roomConfig, setRoomConfig] = useState({ problem: "", difficulty: "", isPrivate: false });
 
   const { data: profile } = useProfile();
 
@@ -43,6 +45,7 @@ function DashboardPage() {
       {
         problem: roomConfig.problem,
         difficulty: roomConfig.difficulty.toLowerCase(),
+        isPrivate: roomConfig.isPrivate,
       },
       {
         onSuccess: (data) => {
@@ -50,8 +53,16 @@ function DashboardPage() {
           navigate(`/session/${data.session._id}`);
         },
         onError: (error) => {
-          console.error("Failed to create session:", error);
-          alert("Failed to create session. Check console for details.");
+          const errorData = error.response?.data;
+
+          // Check if this is a free tier limit error
+          if (errorData?.error === "FREE_TIER_LIMIT" || errorData?.upgradeRequired) {
+            setShowCreateModal(false);
+            setShowLimitModal(true); // Show modal instead of confirm dialog
+          } else {
+            console.error("Failed to create session:", error);
+            alert(errorData?.message || "Failed to create session. Please try again.");
+          }
         }
       }
     );
@@ -120,6 +131,13 @@ function DashboardPage() {
         setRoomConfig={setRoomConfig}
         onCreateRoom={handleCreateRoom}
         isCreating={createSessionMutation.isPending}
+      />
+
+      <LimitReachedModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        type="session"
+        limit={3}
       />
 
       {/* DailyClaimModal is now replaced by the Navbar popover system as per user feedback */}

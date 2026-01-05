@@ -21,6 +21,14 @@ import {
     approveAppeal,
     rejectAppeal,
 } from "../controllers/adminController.js";
+import {
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    getAllOrders,
+    updateOrderStatus,
+    getProducts
+} from "../controllers/storeController.js";
 
 const router = express.Router();
 
@@ -58,4 +66,13 @@ router.get("/appeals", getAllAppeals);
 router.post("/appeals/:appealId/approve", approveAppeal);
 router.post("/appeals/:appealId/reject", rejectAppeal);
 
+// Store management
+router.get("/store/products", getProducts);
+router.post("/store/products", createProduct);
+router.put("/store/products/:id", updateProduct);
+router.delete("/store/products/:id", deleteProduct);
+router.get("/store/orders", getAllOrders);
+router.put("/store/orders/:id", updateOrderStatus);
+
 export default router;
+

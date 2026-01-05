@@ -15,19 +15,32 @@ export const protectRoute = [
       let user = await User.findOne({ clerkId });
 
       // if user is missing in our DB, fetch from Clerk and create on the fly
+      // if user is missing in our DB, fetch from Clerk and create or link
       if (!user) {
         try {
           const clerkUser = await clerkClient.users.getUser(clerkId);
+          const email = clerkUser.emailAddresses?.[0]?.emailAddress;
 
-          user = await User.create({
-            clerkId,
-            email: clerkUser.emailAddresses?.[0]?.emailAddress,
-            name:
-              `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
-              clerkUser.username ||
-              "Unnamed User",
-            profileImage: clerkUser.imageUrl || "",
-          });
+          // Check if user exists by email (prevent duplicate key error)
+          user = await User.findOne({ email });
+
+          if (user) {
+            // User exists but has different/missing clerkId - Link them
+            user.clerkId = clerkId;
+            // Update other fields if missing
+            if (!user.name) user.name = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || clerkUser.username || "Unnamed User";
+            if (!user.profileImage) user.profileImage = clerkUser.imageUrl || "";
+            await user.save();
+            console.log(`[Auth] Linked existing user ${email} to new Clerk ID ${clerkId}`);
+          } else {
+            // Truly new user - Create
+            user = await User.create({
+              clerkId,
+              email,
+              name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || clerkUser.username || "Unnamed User",
+              profileImage: clerkUser.imageUrl || "",
+            });
+          }
 
           // sync to stream
           await upsertStreamUser({
@@ -37,7 +50,11 @@ export const protectRoute = [
           });
         } catch (createErr) {
           console.error("Error syncing Clerk user to DB:", createErr);
-          return res.status(404).json({ message: "User not found" });
+          // If concurrent requests created the user in between, try one last fetch
+          user = await User.findOne({ clerkId });
+          if (!user) {
+            return res.status(500).json({ message: "Failed to sync user" });
+          }
         }
       }
 

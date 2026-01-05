@@ -31,9 +31,9 @@ function PremiumLock({
     };
 
     return (
-        <div className="relative">
+        <div className="relative h-full">
             {/* Blurred Content */}
-            <div className="blur-sm pointer-events-none select-none opacity-50">
+            <div className="blur-sm pointer-events-none select-none opacity-50 h-full">
                 {children}
             </div>
 

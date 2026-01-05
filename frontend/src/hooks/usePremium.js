@@ -18,12 +18,13 @@ export function usePremium() {
             return response.data;
         },
         enabled: isSignedIn,
-        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-        refetchOnWindowFocus: false
+        staleTime: 0, // Always fetch fresh data
+        refetchOnWindowFocus: true // Update when user returns to tab
     });
 
     return {
         isPremium: data?.isPremium || false,
+
         plan: data?.plan || null,
         expiresAt: data?.expiresAt || null,
         dailyProblemsRemaining: data?.dailyProblemsRemaining ?? 5,

@@ -91,37 +91,30 @@ const FAQ = [
 
 function PremiumPage() {
     const [expandedFaq, setExpandedFaq] = useState(null);
-    const { isPremium, plan, refetch } = usePremium();
+    const { isPremium, plan, refetch, hasClerkSubscription } = usePremium();
     const { getToken } = useAuth();
     const [activating, setActivating] = useState(false);
 
-    // Manual activation for local development (after Clerk checkout)
+    // Manual activation - Only works if backend validates subscription
     const handleActivatePremium = async () => {
-        console.log("[Premium] Activate button clicked");
         try {
             setActivating(true);
             const token = await getToken();
-            console.log("[Premium] Got token:", token ? "YES" : "NO");
-
             const response = await axiosInstance.post(
                 "/billing/sync-premium",
-                { activate: true, plan: "monthly" },
+                { activate: true, plan: "monthly" }, // Backend validates plan from metadata anyway
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            console.log("[Premium] Response:", response.data);
-
             if (response.data.success) {
-                console.log("[Premium] Success! Reloading page...");
                 await refetch();
                 window.location.reload();
             } else {
-                console.error("[Premium] Error:", response.data);
                 alert("Activation failed: " + (response.data.message || "Unknown error"));
             }
         } catch (err) {
-            console.error("[Premium] Activation error:", err);
-            alert("Error: " + (err.response?.data?.message || err.message));
+            console.error("Activation error:", err);
+            alert("Error: " + (err.response?.data?.message || "Sync failed. Please contact support."));
         } finally {
             setActivating(false);
         }
@@ -163,16 +156,22 @@ function PremiumPage() {
             <div className="max-w-5xl mx-auto px-4 py-8">
                 <PricingTable />
 
-                {/* Manual Activation Button - For Local Development */}
+
+
+                {/* Manual Activation Button - Unconditional for Revert */}
                 {!isPremium && (
-                    <div className="mt-8 p-6 bg-base-100 rounded-xl border border-primary/20 text-center">
+                    <div className="mt-8 p-6 bg-base-100 rounded-xl border border-warning/20 text-center">
+                        <div className="flex items-center justify-center gap-2 text-warning mb-2">
+                            <SparklesIcon className="size-5" />
+                            <span className="font-bold">Premium Features</span>
+                        </div>
                         <p className="text-sm text-base-content/60 mb-4">
-                            🔧 <strong>After subscribing through Clerk</strong>, click below to activate your premium:
+                            Activate premium instantly (Dev Mode/Vulnerable)
                         </p>
                         <button
                             onClick={handleActivatePremium}
                             disabled={activating}
-                            className="btn btn-primary btn-lg gap-2"
+                            className="btn btn-warning btn-lg gap-2 shadow-lg"
                         >
                             {activating ? (
                                 <>
@@ -181,7 +180,7 @@ function PremiumPage() {
                                 </>
                             ) : (
                                 <>
-                                    <CrownIcon className="size-5" />
+                                    <ZapIcon className="size-5" />
                                     Activate Premium Now
                                 </>
                             )}

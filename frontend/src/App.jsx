@@ -13,6 +13,8 @@ import JoinPage from "./pages/JoinPage";
 import AdminPage from "./pages/AdminPage";
 import PremiumPage from "./pages/PremiumPage";
 import SubscriptionSuccessPage from "./pages/SubscriptionSuccessPage";
+import StorePage from "./pages/StorePage";
+import OrdersPage from "./pages/OrdersPage";
 import BanCheck from "./components/BanCheck";
 
 function App() {
@@ -53,6 +55,10 @@ function App() {
 
         {/* Premium Page - accessible to all */}
         <Route path="/premium" element={<PremiumPage />} />
+
+        {/* Store routes */}
+        <Route path="/store" element={<StorePage />} />
+        <Route path="/orders" element={isSignedIn ? <OrdersPage /> : <Navigate to={"/"} />} />
 
         {/* Subscription Success - activates premium after checkout */}
         <Route path="/subscription/success" element={isSignedIn ? <SubscriptionSuccessPage /> : <Navigate to={"/"} />} />

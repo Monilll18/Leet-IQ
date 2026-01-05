@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { useProfile } from "../hooks/useAuth";
+import { usePremium } from "../hooks/usePremium";
 
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ProblemDescription from "../components/ProblemDescription";
@@ -18,6 +19,8 @@ import ProctoringOverlay from "../components/ProctoringOverlay";
 import { useClaimProblemReward } from "../hooks/useRewards";
 import ChallengeCompletionModal from "../components/ChallengeCompletionModal";
 import SubmissionResult from "../components/SubmissionResult";
+import LimitReachedModal from "../components/LimitReachedModal";
+import PremiumLock from "../components/PremiumLock";
 import { ChevronUpIcon, ChevronDownIcon, CheckCircle2Icon, TerminalIcon, Maximize2Icon } from "lucide-react";
 
 function ProblemPage() {
@@ -25,6 +28,7 @@ function ProblemPage() {
   const navigate = useNavigate();
   const { getToken } = useAuth();
   const { data: profile } = useProfile();
+  const { isPremium, dailyProblemsRemaining, refetch: refetchPremium } = usePremium();
 
   const [currentProblemId, setCurrentProblemId] = useState(id || "two-sum");
   const [currentProblem, setCurrentProblem] = useState(null);
@@ -43,6 +47,8 @@ function ProblemPage() {
   const [consoleHeight, setConsoleHeight] = useState(30);
   const [isLoadingProblem, setIsLoadingProblem] = useState(true);
   const [allProblems, setAllProblems] = useState([]);
+  const [isPremiumLocked, setIsPremiumLocked] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   const claimReward = useClaimProblemReward();
 
@@ -54,12 +60,19 @@ function ProblemPage() {
   // Fetch current problem from database
   const fetchCurrentProblem = async (problemId) => {
     setIsLoadingProblem(true);
+    setIsPremiumLocked(false); // Reset lock state
     // Clear code immediately when switching problems
     setCode("");
 
     try {
       const response = await axiosInstance.get(`/problems/${problemId}`);
       const problemData = response.data.problem;
+
+      // Check if premium-only and user is not premium - show overlay instead of redirect
+      if (problemData.isPremiumOnly && !isPremium) {
+        setIsPremiumLocked(true);
+      }
+
       setCurrentProblem(problemData);
       // Code sync handled by useEffect
     } catch (error) {
@@ -375,8 +388,8 @@ function ProblemPage() {
         onUnlock={unlock}
       />
 
-      <div className="flex-1">
-        <PanelGroup direction="horizontal">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        <PanelGroup direction="horizontal" className="h-full">
           {/* left panel- problem desc */}
           <Panel defaultSize={40} minSize={30}>
             <ProblemDescription
@@ -394,6 +407,7 @@ function ProblemPage() {
               isLoadingSubmissions={isLoadingSubmissions}
               selectedSubmission={selectedSubmission}
               setSelectedSubmission={setSelectedSubmission}
+              isPremiumLocked={isPremiumLocked}
             />
           </Panel>
 
@@ -402,57 +416,85 @@ function ProblemPage() {
           {/* right panel- code editor & output */}
           <Panel defaultSize={60} minSize={30}>
             <div className="h-full flex flex-col bg-base-300">
-              <div className="flex-1 min-h-0 relative">
-                <PanelGroup direction="vertical">
-                  {/* Top panel - Code editor */}
-                  <Panel defaultSize={70} minSize={30}>
-                    <CodeEditorPanel
-                      key={`editor-${currentProblemId}-${selectedLanguage}`}
-                      selectedLanguage={selectedLanguage}
-                      code={code}
-                      isRunning={isRunning}
-                      isSolved={isSolved}
-                      contestId={contestId}
-                      onLanguageChange={handleLanguageChange}
-                      onCodeChange={setCode}
-                      onRunCode={handleRunCode}
-                      onSubmit={handleSubmitCode}
-                    />
-                  </Panel>
+              <div className="flex-1 min-h-0">
+                <PremiumLock
+                  isLocked={isPremiumLocked}
+                  title="Subscribe to unlock"
+                  description="Thanks for using LeetIQ! To view this question you must subscribe to premium."
+                  size="lg"
+                >
+                  <PanelGroup direction="vertical">
+                    {/* Top panel - Code editor */}
+                    <Panel defaultSize={70} minSize={30}>
+                      <CodeEditorPanel
+                        key={`editor-${currentProblemId}-${selectedLanguage}`}
+                        selectedLanguage={selectedLanguage}
+                        code={code}
+                        isRunning={isRunning}
+                        isSolved={isSolved}
+                        contestId={contestId}
+                        onLanguageChange={handleLanguageChange}
+                        onCodeChange={setCode}
+                        onRunCode={handleRunCode}
+                        onSubmit={handleSubmitCode}
+                      />
+                    </Panel>
 
-                  {/* Bottom panel - Output Panel*/}
-                  {isConsoleOpen && (
-                    <>
-                      <PanelResizeHandle className="h-1 bg-base-200 hover:bg-primary/50 transition-colors cursor-row-resize" />
-                      <Panel
-                        defaultSize={consoleHeight}
-                        minSize={20}
-                        onResize={(size) => setConsoleHeight(size)}
-                      >
-                        <OutputPanel
-                          output={output}
-                          problem={currentProblem}
-                          selectedLanguage={selectedLanguage}
-                        />
-                      </Panel>
-                    </>
-                  )}
-                </PanelGroup>
+                    {/* Bottom panel - Output Panel*/}
+                    {isConsoleOpen && (
+                      <>
+                        <PanelResizeHandle className="h-1 bg-base-200 hover:bg-primary/50 transition-colors cursor-row-resize" />
+                        <Panel
+                          defaultSize={consoleHeight}
+                          minSize={20}
+                          onResize={(size) => setConsoleHeight(size)}
+                        >
+                          <OutputPanel
+                            output={output}
+                            problem={currentProblem}
+                            selectedLanguage={selectedLanguage}
+                          />
+                        </Panel>
+                      </>
+                    )}
+                  </PanelGroup>
+                </PremiumLock>
               </div>
 
               {/* Editor Footer with Console Toggle */}
-              <div className="flex items-center justify-between px-4 py-1.5 bg-base-300 border-t border-base-300 select-none">
-                <div className="flex items-center gap-1">
+              {/* Editor Footer / Console Tab Bar */}
+              <div className="flex-none h-12 bg-base-100 border-t border-base-300 flex items-center px-4 justify-between select-none z-10">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsConsoleOpen(!isConsoleOpen)}
-                    className="btn btn-sm btn-ghost gap-2 font-bold normal-case hover:bg-base-200"
+                    className={`btn btn-sm gap-2 font-semibold transition-all ${isConsoleOpen
+                      ? "bg-base-200 text-base-content shadow-inner border-base-300"
+                      : "btn-ghost text-base-content/70 hover:bg-base-200"
+                      }`}
                   >
-                    Console
-                    <div className={`transition-transform duration-300 ${isConsoleOpen ? 'rotate-180' : ''}`}>
-                      <ChevronUpIcon className="size-4" />
-                    </div>
+                    <TerminalIcon className="size-4" />
+                    <span>Console</span>
+                    <ChevronUpIcon className={`size-4 transition-transform duration-300 ${isConsoleOpen ? "rotate-180" : ""}`} />
                   </button>
+
+                  {/* Status Indicator (Optional) */}
+                  {output && (
+                    <div className={`badge badge-sm gap-1 ${output.success ? 'badge-success/10 text-success' : 'badge-error/10 text-error'}`}>
+                      <div className={`size-1.5 rounded-full ${output.success ? 'bg-success' : 'bg-error'}`} />
+                      {output.success ? 'Passed' : 'Error'}
+                    </div>
+                  )}
                 </div>
+
+                {isConsoleOpen && (
+                  <button
+                    onClick={() => setConsoleHeight(30)} // Reset size
+                    className="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content"
+                    title="Reset View"
+                  >
+                    <ChevronDownIcon className="size-4" />
+                  </button>
+                )}
               </div>
             </div>
           </Panel>
@@ -463,7 +505,13 @@ function ProblemPage() {
         onClose={() => setShowCompletionModal(false)}
         streak={newStreak}
       />
-    </div>
+      <LimitReachedModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        type="problem"
+        limit={5}
+      />
+    </div >
   );
 }
 

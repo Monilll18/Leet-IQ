@@ -218,6 +218,22 @@ function SessionPage() {
                           {session?.difficulty.slice(0, 1).toUpperCase() +
                             session?.difficulty.slice(1) || "Easy"}
                         </span>
+                        {/* Participant Leave Button */}
+                        {isParticipant && session?.status === "active" && (
+                          <button
+                            onClick={handleLeave}
+                            disabled={leaveSessionMutation.isPending}
+                            className="btn btn-warning btn-sm gap-2"
+                          >
+                            {leaveSessionMutation.isPending ? (
+                              <Loader2Icon className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <LogOutIcon className="w-4 h-4" />
+                            )}
+                            Leave Session
+                          </button>
+                        )}
+                        {/* Host End Session Button */}
                         {isHost && session?.status === "active" && (
                           <button
                             onClick={handleEndSession}

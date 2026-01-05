@@ -1,4 +1,4 @@
-import { Code2Icon, LoaderIcon, PlusIcon } from "lucide-react";
+import { Code2Icon, LoaderIcon, PlusIcon, LockIcon, GlobeIcon } from "lucide-react";
 import { PROBLEMS } from "../data/problems";
 
 function CreateSessionModal({
@@ -32,6 +32,7 @@ function CreateSessionModal({
               onChange={(e) => {
                 const selectedProblem = problems.find((p) => p.title === e.target.value);
                 setRoomConfig({
+                  ...roomConfig,
                   difficulty: selectedProblem.difficulty,
                   problem: e.target.value,
                 });
@@ -49,6 +50,36 @@ function CreateSessionModal({
             </select>
           </div>
 
+          {/* PRIVATE/PUBLIC TOGGLE */}
+          <div className="space-y-2">
+            <label className="label">
+              <span className="label-text font-semibold">Session Type</span>
+            </label>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className={`btn flex-1 gap-2 ${!roomConfig.isPrivate ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setRoomConfig({ ...roomConfig, isPrivate: false })}
+              >
+                <GlobeIcon className="size-4" />
+                Public
+              </button>
+              <button
+                type="button"
+                className={`btn flex-1 gap-2 ${roomConfig.isPrivate ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setRoomConfig({ ...roomConfig, isPrivate: true })}
+              >
+                <LockIcon className="size-4" />
+                Private
+              </button>
+            </div>
+            <p className="text-xs opacity-60 mt-1">
+              {roomConfig.isPrivate
+                ? "Private: Others must enter invite code to join"
+                : "Public: Anyone can join from Live Sessions"}
+            </p>
+          </div>
+
           {/* ROOM SUMMARY */}
           {roomConfig.problem && (
             <div className="alert alert-success">
@@ -57,6 +88,9 @@ function CreateSessionModal({
                 <p className="font-semibold">Room Summary:</p>
                 <p>
                   Problem: <span className="font-medium">{roomConfig.problem}</span>
+                </p>
+                <p>
+                  Type: <span className="font-medium">{roomConfig.isPrivate ? "Private (Invite Only)" : "Public"}</span>
                 </p>
                 <p>
                   Max Participants: <span className="font-medium">2 (1-on-1 session)</span>

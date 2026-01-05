@@ -3,6 +3,9 @@ import { judgeCode } from "../lib/judge.js";
 import { PROBLEMS } from "../data/problems.js";
 import { calculateBenchmarks } from "../services/benchmarkService.js";
 import Problem from "../models/Problem.js";
+import User from "../models/User.js";
+
+const FREE_DAILY_PROBLEM_LIMIT = 5;
 
 export const executeSubmission = async (req, res) => {
     try {
@@ -12,16 +15,40 @@ export const executeSubmission = async (req, res) => {
             return res.status(400).json({ message: "Language, code, and problemId are required" });
         }
 
+        // Get user from request (set by protectRoute middleware)
+        const user = req.user;
+
+        // For SUBMIT mode, check daily problem limit for free users
+        if (isSubmit && user && !user.isPremium) {
+            const today = new Date().toDateString();
+            const lastSolvedDate = user.lastProblemSolvedDate
+                ? new Date(user.lastProblemSolvedDate).toDateString()
+                : null;
+
+            // Reset count if new day
+            let dailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) : 0;
+
+            if (dailyCount >= FREE_DAILY_PROBLEM_LIMIT) {
+                return res.status(403).json({
+                    message: "Daily problem limit reached. Upgrade to Premium for unlimited practice!",
+                    error: "FREE_TIER_LIMIT",
+                    upgradeRequired: true,
+                    dailyLimit: FREE_DAILY_PROBLEM_LIMIT,
+                    problemsSolved: dailyCount
+                });
+            }
+        }
+
         // Try to fetch problem from database first, fallback to static PROBLEMS
         let problem;
         try {
             const dbProblem = await Problem.findOne({ id: problemId, isActive: true });
             if (dbProblem) {
                 problem = dbProblem.toObject();
-                console.log(`[Executor] Using database problem: ${ problemId } `);
+                console.log(`[Executor] Using database problem: ${problemId} `);
             } else {
                 problem = PROBLEMS[problemId];
-                console.log(`[Executor] Using static problem: ${ problemId } `);
+                console.log(`[Executor] Using static problem: ${problemId} `);
             }
         } catch (dbError) {
             console.error(`[Executor] Database lookup failed, using static: `, dbError.message);
@@ -30,6 +57,15 @@ export const executeSubmission = async (req, res) => {
 
         if (!problem) {
             return res.status(404).json({ message: "Problem not found in judging database" });
+        }
+
+        // Check if problem is premium-only and user doesn't have premium
+        if (problem.isPremiumOnly && user && !user.isPremium) {
+            return res.status(403).json({
+                message: "This problem is Premium-only. Upgrade to access!",
+                error: "PREMIUM_REQUIRED",
+                upgradeRequired: true
+            });
         }
 
         // Use the judge engine for EVERYTHING to ensure high precision metrics
@@ -41,15 +77,31 @@ export const executeSubmission = async (req, res) => {
 
         const testCasesToRun = isSubmit ? problem.testCases : problem.testCases.slice(0, 3);
 
-        console.log(`[Executor] ${ isSubmit ? 'Judging' : 'Running' } ${ problemId } in ${ language } `);
+        console.log(`[Executor] ${isSubmit ? 'Judging' : 'Running'} ${problemId} in ${language} `);
         const result = await judgeCode(language, code, problem.functionName, testCasesToRun, {
             timeLimit: problem.timeLimit || 2000,
-            memoryLimit: problem.memoryLimit || 128
+            memoryLimit: problem.memoryLimit || 128,
+            structure: problem.structure // Pass structure for type conversion (ListNode, etc)
         });
 
         if (result.status === "System Error") {
-            console.error(`[Executor] Judging System Error: ${ result.error } `);
+            console.error(`[Executor] Judging System Error: ${result.error} `);
             return res.status(500).json({ msg: "Judging System Error", detail: result.error });
+        }
+
+        // If submission was accepted and this is a submit (not just run), increment daily count
+        if (isSubmit && result.status === "Accepted" && user && !user.isPremium) {
+            const today = new Date().toDateString();
+            const lastSolvedDate = user.lastProblemSolvedDate
+                ? new Date(user.lastProblemSolvedDate).toDateString()
+                : null;
+            let newDailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) + 1 : 1;
+
+            await User.findByIdAndUpdate(user._id, {
+                dailyProblemsSolved: newDailyCount,
+                lastProblemSolvedDate: new Date()
+            });
+            console.log(`[Executor] Free user ${user.email} daily problem count: ${newDailyCount}/${FREE_DAILY_PROBLEM_LIMIT}`);
         }
 
         let benchmarks = null;
@@ -92,3 +144,4 @@ export const executeSubmission = async (req, res) => {
         res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
 };
+

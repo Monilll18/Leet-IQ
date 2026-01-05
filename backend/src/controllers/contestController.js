@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Contest from "../models/Contest.js";
 import ContestSubmission from "../models/ContestSubmission.js";
+import Problem from "../models/Problem.js";
 
 export const getContests = async (req, res) => {
     try {
@@ -125,6 +126,41 @@ export const submitToContest = async (req, res) => {
 
         console.log(`[Submission] Saving for user: ${userId}, problem: ${problemId}, status: ${status}`);
         await submission.save();
+
+        // --- DYNAMIC DIFFICULTY UPDATE ---
+        try {
+            const problemDoc = await Problem.findOne({ id: problemId });
+            if (problemDoc) {
+                // Initialize stats if missing
+                if (!problemDoc.stats) {
+                    problemDoc.stats = { totalSubmissions: 0, totalAccepted: 0, acceptanceRate: 0 };
+                }
+
+                problemDoc.stats.totalSubmissions += 1;
+                if (status === "Accepted") {
+                    problemDoc.stats.totalAccepted += 1;
+                }
+
+                const total = problemDoc.stats.totalSubmissions;
+                const accepted = problemDoc.stats.totalAccepted;
+                const rate = total > 0 ? (accepted / total) * 100 : 0;
+
+                problemDoc.stats.acceptanceRate = parseFloat(rate.toFixed(2));
+
+                // Auto-Adjust Difficulty only if significant data (>10 submissions)
+                if (total >= 10) {
+                    if (rate >= 66) problemDoc.difficulty = "Easy";
+                    else if (rate >= 34) problemDoc.difficulty = "Medium";
+                    else problemDoc.difficulty = "Hard";
+                }
+
+                await problemDoc.save();
+                console.log(`[Difficulty] Updated ${problemId}: ${problemDoc.difficulty} (Rate: ${problemDoc.stats.acceptanceRate}%)`);
+            }
+        } catch (diffError) {
+            console.error("[Difficulty Update Error]", diffError);
+            // Don't fail the response if difficulty update fails
+        }
 
         res.status(200).json({
             status: "Submission Recorded",

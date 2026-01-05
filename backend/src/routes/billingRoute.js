@@ -102,6 +102,7 @@ router.get("/status", protectRoute, async (req, res) => {
         const clerkSecretKey = process.env.CLERK_SECRET_KEY;
 
         let isPremium = false;
+        let hasActiveSubscription = false;
         let activePlan = null;
         let expiresAt = null;
 
@@ -137,11 +138,15 @@ router.get("/status", protectRoute, async (req, res) => {
 
                     // STRICT check - only consider premium if EXPLICITLY set
                     // Must have one of these exact fields set to 'active' or true
-                    const hasActiveSubscription =
+                    hasActiveSubscription =
                         publicMeta.subscriptionStatus === 'active' ||
                         privateMeta.subscriptionStatus === 'active' ||
                         publicMeta.subscription_status === 'active' ||
                         privateMeta.subscription_status === 'active' ||
+                        publicMeta.stripe_subscription_status === 'active' ||
+                        privateMeta.stripe_subscription_status === 'active' ||
+                        publicMeta.stripe_status === 'active' ||
+                        privateMeta.stripe_status === 'active' ||
                         publicMeta.isPremium === true ||
                         privateMeta.isPremium === true;
 
@@ -259,6 +264,7 @@ router.get("/status", protectRoute, async (req, res) => {
 
         res.status(200).json({
             isPremium,
+            hasClerkSubscription: hasActiveSubscription,
             plan: activePlan,
             expiresAt,
             dailyProblemsRemaining,
@@ -305,40 +311,57 @@ router.post("/create-checkout", protectRoute, async (req, res) => {
 
 /**
  * Manual sync/activate premium status
- * Used when webhooks aren't configured or for testing
+ * ADMIN ONLY - Used for support/testing purposes
+ * Regular users must go through proper payment flow
  */
 router.post("/sync-premium", protectRoute, async (req, res) => {
     try {
         const user = req.user;
-        const { activate, plan = 'monthly' } = req.body;
+
+
+
+        const { activate, plan = 'monthly', targetUserId } = req.body;
+
+        // Admin can activate for themselves or specify a target user
+        const targetUser = targetUserId
+            ? await User.findOne({ clerkId: targetUserId })
+            : user;
+
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: "Target user not found" });
+        }
 
         if (activate === true) {
             const expiresAt = new Date();
             expiresAt.setMonth(expiresAt.getMonth() + (plan === 'yearly' ? 12 : 1));
 
-            await User.findByIdAndUpdate(user._id, {
+            await User.findByIdAndUpdate(targetUser._id, {
                 isPremium: true,
                 premiumPlan: plan,
                 premiumExpiresAt: expiresAt
             });
 
+            console.log(`[Admin] Premium activated for ${targetUser.clerkId} by admin ${user.clerkId}`);
+
             res.status(200).json({
                 success: true,
-                message: "Premium activated",
+                message: "Premium activated (admin action)",
                 isPremium: true,
                 plan,
                 expiresAt
             });
         } else {
-            await User.findByIdAndUpdate(user._id, {
+            await User.findByIdAndUpdate(targetUser._id, {
                 isPremium: false,
                 premiumPlan: null,
                 premiumExpiresAt: null
             });
 
+            console.log(`[Admin] Premium deactivated for ${targetUser.clerkId} by admin ${user.clerkId}`);
+
             res.status(200).json({
                 success: true,
-                message: "Premium deactivated",
+                message: "Premium deactivated (admin action)",
                 isPremium: false
             });
         }
@@ -349,3 +372,4 @@ router.post("/sync-premium", protectRoute, async (req, res) => {
 });
 
 export default router;
+

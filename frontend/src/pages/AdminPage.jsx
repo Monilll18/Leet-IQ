@@ -8,7 +8,8 @@ import ProblemManagement from "../components/admin/ProblemManagement";
 import ContestManagement from "../components/admin/ContestManagement";
 import SessionManagement from "../components/admin/SessionManagement";
 import AppealManagement from "../components/admin/AppealManagement";
-import { ShieldCheckIcon, UsersIcon, CodeIcon, TrophyIcon, VideoIcon, MessageSquareIcon } from "lucide-react";
+import StoreManagement from "../components/admin/StoreManagement";
+import { ShieldCheckIcon, UsersIcon, CodeIcon, TrophyIcon, VideoIcon, MessageSquareIcon, ShoppingBagIcon } from "lucide-react";
 
 function AdminPage() {
     const { isAdmin, isLoading } = useAdmin();
@@ -33,6 +34,7 @@ function AdminPage() {
         { id: "contests", label: "Contests", icon: TrophyIcon },
         { id: "sessions", label: "Sessions", icon: VideoIcon },
         { id: "appeals", label: "Appeals", icon: MessageSquareIcon },
+        { id: "store", label: "Store", icon: ShoppingBagIcon },
     ];
 
     return (
@@ -75,6 +77,7 @@ function AdminPage() {
                     {activeTab === "contests" && <ContestManagement />}
                     {activeTab === "sessions" && <SessionManagement />}
                     {activeTab === "appeals" && <AppealManagement />}
+                    {activeTab === "store" && <StoreManagement />}
                 </div>
             </div>
         </div>
@@ -82,3 +85,4 @@ function AdminPage() {
 }
 
 export default AdminPage;
+

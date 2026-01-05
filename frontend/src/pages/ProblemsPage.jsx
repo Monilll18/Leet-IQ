@@ -13,6 +13,7 @@ function ProblemsPage() {
   const [solvedIds, setSolvedIds] = useState(new Set());
   const { getToken } = useAuth();
   const { isPremium, dailyProblemsRemaining, features } = usePremium();
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Fetch problems from backend
   const { data: problemsData, isLoading: problemsLoading } = useQuery({
@@ -86,13 +87,13 @@ function ProblemsPage() {
           <>
             {/* PROBLEMS LIST */}
             <div className="space-y-4">
-              {problems.map((problem) => {
+              {problems.slice(0, visibleCount).map((problem) => {
                 const isLocked = problem.isPremiumOnly && !isPremium;
 
                 return (
                   <Link
                     key={problem.id}
-                    to={isLocked ? "/premium" : `/problem/${problem.id}`}
+                    to={`/problem/${problem.id}`}
                     className={`card bg-base-100 hover:scale-[1.01] transition-transform ${isLocked ? 'opacity-75' : ''}`}
                   >
                     <div className="card-body">
@@ -162,6 +163,19 @@ function ProblemsPage() {
                 )
               })}
             </div>
+
+            {/* LOAD MORE BUTTON */}
+            {visibleCount < problems.length && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 10)}
+                  className="btn btn-outline btn-primary gap-2"
+                >
+                  <ChevronRightIcon className="size-4 rotate-90" />
+                  Load More Problems
+                </button>
+              </div>
+            )}
 
             {/* STATS FOOTER */}
             <div className="mt-12 card bg-base-100 shadow-lg">

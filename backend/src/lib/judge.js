@@ -11,28 +11,114 @@ const LANGUAGE_CONFIG = {
  * Generates a wrapper script for the specific language.
  * Now uses a secret result marker to prevent user code spoofing.
  */
-function getDriver(language, userCode, functionName, testCases, marker) {
+function getDriver(language, userCode, functionName, testCases, marker, structure = {}) {
     const tcJson = JSON.stringify(testCases);
+    const argTypes = structure.argTypes || [];
+    const returnType = structure.returnType;
 
     switch (language.toLowerCase()) {
         case "javascript":
             return `
+// Helper Definitions
+function ListNode(val, next) {
+    this.val = (val===undefined ? 0 : val)
+    this.next = (next===undefined ? null : next)
+}
+function TreeNode(val, left, right) {
+    this.val = (val===undefined ? 0 : val)
+    this.left = (left===undefined ? null : left)
+    this.right = (right===undefined ? null : right)
+}
+
+// Deserializers
+function arrayToList(arr) {
+    if (!arr || arr.length === 0) return null;
+    let head = new ListNode(arr[0]);
+    let current = head;
+    for (let i = 1; i < arr.length; i++) {
+        current.next = new ListNode(arr[i]);
+        current = current.next;
+    }
+    return head;
+}
+function listToArray(head) {
+    const arr = [];
+    while (head) {
+        arr.push(head.val);
+        head = head.next;
+    }
+    return arr;
+}
+function arrayToTree(arr) {
+    if (!arr || arr.length === 0) return null;
+    let root = new TreeNode(arr[0]);
+    let queue = [root];
+    let i = 1;
+    while (i < arr.length) {
+        let current = queue.shift();
+        if (arr[i] !== null) {
+            current.left = new TreeNode(arr[i]);
+            queue.push(current.left);
+        }
+        i++;
+        if (i < arr.length && arr[i] !== null) {
+            current.right = new TreeNode(arr[i]);
+            queue.push(current.right);
+        }
+        i++;
+    }
+    return root;
+}
+// Note: Tree serialization (treeToArray) is complex (BFS with nulls), usually not needed for judging if we compare JSONs? 
+// Actually, LeetCode compares the SERIALIZED output. So we need treeToArray.
+function treeToArray(root) {
+    if (!root) return [];
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const node = queue.shift();
+        if (node) {
+            result.push(node.val);
+            queue.push(node.left);
+            queue.push(node.right);
+        } else {
+            result.push(null);
+        }
+    }
+    // Trim trailing nulls
+    while (result.length > 0 && result[result.length - 1] === null) {
+        result.pop();
+    }
+    return result;
+}
+
 ${userCode}
+
 (function() {
     const testCases = ${tcJson};
     const results = [];
     const marker = "${marker}";
-    
+    const argTypes = ${JSON.stringify(argTypes)};
+    const returnType = "${returnType || ''}";
+
     for (const tc of testCases) {
         try {
+            // Convert inputs based on metadata
+            const args = tc.params.map((param, idx) => {
+                const type = argTypes[idx];
+                if (type === "ListNode") return arrayToList(param);
+                if (type === "TreeNode") return arrayToTree(param);
+                return param;
+            });
+
             const start = performance.now();
             let actual;
             if (typeof ${functionName} === 'function') {
-                actual = ${functionName}(...tc.params);
+                actual = ${functionName}(...args);
             } else if (typeof Solution !== 'undefined') {
                 const sol = new Solution();
                 if (typeof sol.${functionName} === 'function') {
-                    actual = sol.${functionName}(...tc.params);
+                    actual = sol.${functionName}(...args);
                 } else {
                     throw new Error("Function ${functionName} not found in Solution class");
                 }
@@ -40,10 +126,15 @@ ${userCode}
                 throw new Error("Function ${functionName} not found");
             }
             const end = performance.now();
-            
+
+            // Convert output back to serializable format for comparison
+            let serializedActual = actual;
+            if (returnType === "ListNode") serializedActual = listToArray(actual);
+            // if (returnType === "TreeNode") serializedActual = treeToArray(actual); // TODO: implement if needed
+
             results.push({
                 status: "Accepted",
-                actual: actual,
+                actual: serializedActual,
                 expected: tc.expected,
                 time: end - start
             });
@@ -63,9 +154,61 @@ import time
 import json
 import sys
 
+# Helpers
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+def array_to_list(arr):
+    if not arr: return None
+    head = ListNode(arr[0])
+    curr = head
+    for x in arr[1:]:
+        curr.next = ListNode(x)
+        curr = curr.next
+    return head
+
+def list_to_array(head):
+    arr = []
+    while head:
+        arr.append(head.val)
+        head = head.next
+    return arr
+
+def array_to_tree(arr):
+    if not arr: return None
+    root = TreeNode(arr[0])
+    queue = [root]
+    i = 1
+    while i < len(arr):
+        curr = queue.pop(0)
+        if i < len(arr) and arr[i] is not None:
+            curr.left = TreeNode(arr[i])
+            queue.append(curr.left)
+        i += 1
+        if i < len(arr) and arr[i] is not None:
+            curr.right = TreeNode(arr[i])
+            queue.append(curr.right)
+        i += 1
+    return root
+
 def run_judge():
     marker = "${marker}"
+    arg_types = ${JSON.stringify(argTypes)}
+    return_type = "${returnType || ''}"
+    
     exec_globals = {}
+    # Inject helpers into user scope
+    exec_globals['ListNode'] = ListNode
+    exec_globals['TreeNode'] = TreeNode
+
     try:
         exec(compile("""${escapedCode}\""", 'user_code', 'exec'), exec_globals)
     except Exception as e:
@@ -76,8 +219,13 @@ def run_judge():
     results = []
     
     if 'Solution' in exec_globals:
-        sol = exec_globals['Solution']()
-        func = getattr(sol, '${functionName}', None)
+        try:
+            sol = exec_globals['Solution']()
+            func = getattr(sol, '${functionName}', None)
+        except Exception as e:
+             # Handle case where Solution needs args or fails init
+            print(marker + json.dumps([{"status": "Runtime Error", "error": "Solution class init failed: " + str(e)}]))
+            return
     else:
         func = exec_globals.get('${functionName}')
 
@@ -87,9 +235,29 @@ def run_judge():
 
     for tc in test_cases:
         try:
+            # Convert args
+            args = []
+            params = tc['params']
+            for idx, param in enumerate(params):
+                if idx < len(arg_types):
+                    t = arg_types[idx]
+                    if t == "ListNode":
+                        args.append(array_to_list(param))
+                    elif t == "TreeNode":
+                        args.append(array_to_tree(param))
+                    else:
+                        args.append(param)
+                else:
+                    args.append(param)
+
             start = time.perf_counter()
-            actual = func(*tc['params'])
+            actual = func(*args)
             end = time.perf_counter()
+
+            # Serialize output
+            if return_type == "ListNode":
+                actual = list_to_array(actual)
+            
             results.append({
                 "status": "Accepted",
                 "actual": actual,
