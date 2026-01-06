@@ -1,8 +1,13 @@
 import axios from "axios";
 
+// Use env var or fallback to production URL
+const API_URL = import.meta.env.VITE_API_URL || "https://leet-iq.onrender.com/api";
+
+console.log("[Axios] API URL:", API_URL);
+
 const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    withCredentials: true, // by adding this field browser will send the cookies to server automatically, on every single req
+    baseURL: API_URL,
+    withCredentials: true,
 });
 
 export default axiosInstance;
