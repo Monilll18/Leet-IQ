@@ -20,22 +20,27 @@ export const executeSubmission = async (req, res) => {
 
         // For SUBMIT mode, check daily problem limit for free users
         if (isSubmit && user && !user.isPremium) {
-            const today = new Date().toDateString();
-            const lastSolvedDate = user.lastProblemSolvedDate
-                ? new Date(user.lastProblemSolvedDate).toDateString()
-                : null;
+            // Skip limit check if user already solved this problem (practice mode is unlimited)
+            const isAlreadySolved = user.solvedProblems?.includes(problemId);
 
-            // Reset count if new day
-            let dailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) : 0;
+            if (!isAlreadySolved) {
+                const today = new Date().toDateString();
+                const lastSolvedDate = user.lastProblemSolvedDate
+                    ? new Date(user.lastProblemSolvedDate).toDateString()
+                    : null;
 
-            if (dailyCount >= FREE_DAILY_PROBLEM_LIMIT) {
-                return res.status(403).json({
-                    message: "Daily problem limit reached. Upgrade to Premium for unlimited practice!",
-                    error: "FREE_TIER_LIMIT",
-                    upgradeRequired: true,
-                    dailyLimit: FREE_DAILY_PROBLEM_LIMIT,
-                    problemsSolved: dailyCount
-                });
+                // Reset count if new day
+                let dailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) : 0;
+
+                if (dailyCount >= FREE_DAILY_PROBLEM_LIMIT) {
+                    return res.status(403).json({
+                        message: "Daily problem limit reached. Upgrade to Premium for unlimited practice!",
+                        error: "FREE_TIER_LIMIT",
+                        upgradeRequired: true,
+                        dailyLimit: FREE_DAILY_PROBLEM_LIMIT,
+                        problemsSolved: dailyCount
+                    });
+                }
             }
         }
 
@@ -90,18 +95,25 @@ export const executeSubmission = async (req, res) => {
         }
 
         // If submission was accepted and this is a submit (not just run), increment daily count
+        // Only count towards daily limit if this is a NEW problem solution (not re-solve)
         if (isSubmit && result.status === "Accepted" && user && !user.isPremium) {
-            const today = new Date().toDateString();
-            const lastSolvedDate = user.lastProblemSolvedDate
-                ? new Date(user.lastProblemSolvedDate).toDateString()
-                : null;
-            let newDailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) + 1 : 1;
+            const isAlreadySolved = user.solvedProblems?.includes(problemId);
 
-            await User.findByIdAndUpdate(user._id, {
-                dailyProblemsSolved: newDailyCount,
-                lastProblemSolvedDate: new Date()
-            });
-            console.log(`[Executor] Free user ${user.email} daily problem count: ${newDailyCount}/${FREE_DAILY_PROBLEM_LIMIT}`);
+            if (!isAlreadySolved) {
+                const today = new Date().toDateString();
+                const lastSolvedDate = user.lastProblemSolvedDate
+                    ? new Date(user.lastProblemSolvedDate).toDateString()
+                    : null;
+                let newDailyCount = lastSolvedDate === today ? (user.dailyProblemsSolved || 0) + 1 : 1;
+
+                await User.findByIdAndUpdate(user._id, {
+                    dailyProblemsSolved: newDailyCount,
+                    lastProblemSolvedDate: new Date()
+                });
+                console.log(`[Executor] Free user ${user.email} daily NEW problem count: ${newDailyCount}/${FREE_DAILY_PROBLEM_LIMIT}`);
+            } else {
+                console.log(`[Executor] Free user ${user.email} re-solved ${problemId} - not counting towards limit`);
+            }
         }
 
         let benchmarks = null;

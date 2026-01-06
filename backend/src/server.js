@@ -55,13 +55,8 @@ app.get("/api/books", (req, res) => {
     res.status(200).json({ msg: "This is books API" });
 });
 
-// Production static file serving
-if (env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "../frontend/dist")));
-    app.get(/(.*)/, (req, res) => {
-        res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
-    });
-}
+// Note: Frontend is deployed separately on Vercel
+// No static file serving needed here
 
 // Start server and connect to database
 app.listen(env.PORT, () => {
