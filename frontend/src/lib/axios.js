@@ -14,4 +14,30 @@ const axiosInstance = axios.create({
     withCredentials: true,
 });
 
+// Store the getToken function from Clerk
+let getTokenFn = null;
+
+// Function to set the getToken function (called from App.jsx or auth provider)
+export const setAuthTokenGetter = (fn) => {
+    getTokenFn = fn;
+};
+
+// Request interceptor to automatically attach Clerk token
+axiosInstance.interceptors.request.use(
+    async (config) => {
+        if (getTokenFn) {
+            try {
+                const token = await getTokenFn();
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+            } catch (error) {
+                console.warn("[Axios] Failed to get auth token:", error);
+            }
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
 export default axiosInstance;

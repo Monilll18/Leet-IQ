@@ -1,5 +1,6 @@
-import { SignedIn, SignedOut, SignInButton, SignOutButton, UserButton, useUser } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, SignOutButton, UserButton, useUser, useAuth } from "@clerk/clerk-react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
 import HomePage from "./pages/HomePage";
 
 import { Toaster } from "react-hot-toast";
@@ -16,10 +17,17 @@ import SubscriptionSuccessPage from "./pages/SubscriptionSuccessPage";
 import StorePage from "./pages/StorePage";
 import OrdersPage from "./pages/OrdersPage";
 import BanCheck from "./components/BanCheck";
+import { setAuthTokenGetter } from "./lib/axios";
 
 function App() {
   const { isSignedIn, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const isDevelopment = false;
+
+  // Set up axios auth token getter
+  useEffect(() => {
+    setAuthTokenGetter(getToken);
+  }, [getToken]);
 
   if (!isLoaded) {
     return (
