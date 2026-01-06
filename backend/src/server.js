@@ -47,6 +47,14 @@ app.use("/api/problems", problemRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/store", storeRoutes);
 
+app.get("/api", (req, res) => {
+    res.status(200).json({
+        msg: "LeetIQ API is running!",
+        version: "1.0.0",
+        endpoints: ["/api/health", "/api/problems", "/api/sessions", "/api/execute"]
+    });
+});
+
 app.get("/api/health", (req, res) => {
     res.status(200).json({ msg: "Server is healthy", status: "success" });
 });
