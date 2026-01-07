@@ -18,12 +18,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axiosInstance from '../lib/axios';
 import Navbar from '../components/Navbar';
+import { useProfile } from '../hooks/useAuth';
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import EarnLeetCoin from '../components/EarnLeetCoin';
 
 const StorePage = () => {
     const { getToken, isSignedIn } = useAuth();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('featured');
+    const [activeTab, setActiveTab] = useState('merchandise');
     const [redeemingProduct, setRedeemingProduct] = useState(null);
     const [showAddressModal, setShowAddressModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -36,6 +40,61 @@ const StorePage = () => {
         country: '',
         phone: ''
     });
+    const [formErrors, setFormErrors] = useState({});
+
+    // Popular countries for shipping
+    const countries = [
+        'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany',
+        'France', 'India', 'Japan', 'Brazil', 'Mexico', 'Italy', 'Spain',
+        'Netherlands', 'Sweden', 'Switzerland', 'Singapore', 'South Korea',
+        'United Arab Emirates', 'New Zealand', 'Ireland', 'Poland', 'Belgium',
+        'Austria', 'Norway', 'Denmark', 'Finland', 'Portugal', 'Czech Republic',
+        'Greece', 'Israel', 'South Africa', 'Argentina', 'Chile', 'Colombia',
+        'Philippines', 'Thailand', 'Vietnam', 'Malaysia', 'Indonesia', 'Turkey'
+    ].sort();
+
+    // Validation function
+    const validateForm = () => {
+        const errors = {};
+
+        // Name validation - at least 2 words, letters only
+        if (!shippingAddress.name.trim() || shippingAddress.name.trim().split(' ').length < 2) {
+            errors.name = 'Please enter your full name (first and last)';
+        }
+
+        // Street address - minimum length
+        if (!shippingAddress.street.trim() || shippingAddress.street.trim().length < 10) {
+            errors.street = 'Please enter a valid street address';
+        }
+
+        // City - letters only, minimum 2 chars
+        if (!shippingAddress.city.trim() || !/^[a-zA-Z\s]{2,}$/.test(shippingAddress.city.trim())) {
+            errors.city = 'Please enter a valid city name';
+        }
+
+        // State - letters only, minimum 2 chars
+        if (!shippingAddress.state.trim() || !/^[a-zA-Z\s]{2,}$/.test(shippingAddress.state.trim())) {
+            errors.state = 'Please enter a valid state/province';
+        }
+
+        // ZIP code - alphanumeric, 3-10 chars
+        if (!shippingAddress.zipCode.trim() || !/^[a-zA-Z0-9\s-]{3,10}$/.test(shippingAddress.zipCode.trim())) {
+            errors.zipCode = 'Please enter a valid ZIP/postal code';
+        }
+
+        // Country - must be selected
+        if (!shippingAddress.country) {
+            errors.country = 'Please select a country';
+        }
+
+        // Phone - validate using library
+        if (!shippingAddress.phone || !isValidPhoneNumber(shippingAddress.phone)) {
+            errors.phone = 'Please enter a valid phone number';
+        }
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     // Fetch products
     const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -47,18 +106,8 @@ const StorePage = () => {
         }
     });
 
-    // Fetch user profile for coin balance
-    const { data: userProfile } = useQuery({
-        queryKey: ['user-profile'],
-        queryFn: async () => {
-            const token = await getToken();
-            const res = await axiosInstance.get('/users/me', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            return res.data;
-        },
-        enabled: isSignedIn
-    });
+    // Use the same profile hook as Navbar to get correct coin balance
+    const { data: userProfile } = useProfile();
 
     // Redeem mutation
     const redeemMutation = useMutation({
@@ -85,9 +134,9 @@ const StorePage = () => {
     });
 
     const handleRedeem = (product) => {
-        // For premium products, redirect to premium page
+        // For premium products, open premium page in new tab
         if (product.category === 'premium') {
-            navigate('/premium');
+            window.open('/premium', '_blank', 'noopener,noreferrer');
             return;
         }
 
@@ -114,6 +163,12 @@ const StorePage = () => {
         e.preventDefault();
         if (!selectedProduct) return;
 
+        // Validate form first
+        if (!validateForm()) {
+            toast.error('Please fix the form errors');
+            return;
+        }
+
         setRedeemingProduct(selectedProduct._id);
         redeemMutation.mutate({
             productId: selectedProduct._id,
@@ -122,10 +177,8 @@ const StorePage = () => {
     };
 
     const tabs = [
-        { id: 'featured', label: 'Featured', icon: SparklesIcon },
-        { id: 'earn', label: 'Earn LeetCoin', icon: CoinsIcon },
-        { id: 'premium', label: 'Premium', icon: CrownIcon },
         { id: 'merchandise', label: 'Merchandise', icon: ShoppingBagIcon },
+        { id: 'earn', label: 'Earn LeetCoin', icon: CoinsIcon },
     ];
 
     const getCategoryIcon = (category) => {
@@ -172,6 +225,16 @@ const StorePage = () => {
                                 {tab.label}
                             </button>
                         ))}
+                        {/* Premium button - opens in new tab */}
+                        <a
+                            href="/premium"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm gap-2 btn-ghost border border-base-content/10"
+                        >
+                            <CrownIcon className="size-4" />
+                            Premium
+                        </a>
                         <Link to="/orders" className="btn btn-sm btn-ghost border border-base-content/10 gap-2">
                             <ClipboardListIcon className="size-4" />
                             View Orders
@@ -197,9 +260,11 @@ const StorePage = () => {
                 </div>
             )}
 
-            {/* Products Grid */}
+            {/* Products Grid OR Earn LeetCoin Section */}
             <div className="max-w-7xl mx-auto px-4 py-8">
-                {productsLoading ? (
+                {activeTab === 'earn' ? (
+                    <EarnLeetCoin />
+                ) : productsLoading ? (
                     <div className="flex justify-center py-20">
                         <Loader2Icon className="size-8 animate-spin text-primary" />
                     </div>
@@ -262,33 +327,46 @@ const StorePage = () => {
                                             <CoinsIcon className="size-4" />
                                             {product.price.toLocaleString()}
                                         </div>
-                                        <button
-                                            onClick={() => handleRedeem(product)}
-                                            disabled={
-                                                product.category !== 'premium' && (
-                                                    redeemingProduct === product._id ||
-                                                    product.stock === 0 ||
-                                                    (isSignedIn && userProfile?.coins < product.price)
-                                                )
-                                            }
-                                            className={`btn btn-sm ${product.category === 'premium'
-                                                    ? 'btn-warning'
-                                                    : isSignedIn && userProfile?.coins >= product.price
-                                                        ? 'btn-primary'
-                                                        : 'btn-ghost'
-                                                }`}
-                                        >
-                                            {redeemingProduct === product._id ? (
-                                                <Loader2Icon className="size-4 animate-spin" />
-                                            ) : product.category === 'premium' ? (
-                                                <>
-                                                    <CrownIcon className="size-3" />
-                                                    Get Premium
-                                                </>
-                                            ) : (
-                                                'Redeem'
-                                            )}
-                                        </button>
+                                        {/* Tooltip wrapper for insufficient coins */}
+                                        {(() => {
+                                            const userCoins = userProfile?.coins ?? 0;
+                                            const hasEnoughCoins = userCoins >= product.price;
+                                            const isNotEnoughCoins = isSignedIn && !hasEnoughCoins && product.category !== 'premium';
+                                            const isDisabled = product.category !== 'premium' && (
+                                                redeemingProduct === product._id ||
+                                                product.stock === 0 ||
+                                                (isSignedIn && !hasEnoughCoins)
+                                            );
+
+                                            return (
+                                                <div
+                                                    className={isNotEnoughCoins ? 'tooltip tooltip-left' : ''}
+                                                    data-tip="Not enough LeetCoins"
+                                                >
+                                                    <button
+                                                        onClick={() => handleRedeem(product)}
+                                                        disabled={isDisabled}
+                                                        className={`btn btn-sm ${product.category === 'premium'
+                                                            ? 'btn-warning'
+                                                            : hasEnoughCoins || !isSignedIn
+                                                                ? 'btn-primary'
+                                                                : 'btn-ghost opacity-50 cursor-not-allowed'
+                                                            }`}
+                                                    >
+                                                        {redeemingProduct === product._id ? (
+                                                            <Loader2Icon className="size-4 animate-spin" />
+                                                        ) : product.category === 'premium' ? (
+                                                            <>
+                                                                <CrownIcon className="size-3" />
+                                                                Get Premium
+                                                            </>
+                                                        ) : (
+                                                            'Redeem'
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </div>
@@ -306,79 +384,121 @@ const StorePage = () => {
                             Shipping Address
                         </h3>
                         <form onSubmit={handleAddressSubmit} className="space-y-4">
+                            {/* Full Name */}
                             <div className="form-control">
-                                <label className="label"><span className="label-text">Full Name</span></label>
+                                <label className="label"><span className="label-text">Full Name *</span></label>
                                 <input
                                     type="text"
-                                    className="input input-bordered"
+                                    placeholder="John Doe"
+                                    className={`input input-bordered ${formErrors.name ? 'input-error' : ''}`}
                                     value={shippingAddress.name}
-                                    onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })}
-                                    required
+                                    onChange={(e) => {
+                                        setShippingAddress({ ...shippingAddress, name: e.target.value });
+                                        if (formErrors.name) setFormErrors({ ...formErrors, name: null });
+                                    }}
                                 />
+                                {formErrors.name && <span className="text-error text-xs mt-1">{formErrors.name}</span>}
                             </div>
+
+                            {/* Street Address */}
                             <div className="form-control">
-                                <label className="label"><span className="label-text">Street Address</span></label>
+                                <label className="label"><span className="label-text">Street Address *</span></label>
                                 <input
                                     type="text"
-                                    className="input input-bordered"
+                                    placeholder="123 Main Street, Apt 4B"
+                                    className={`input input-bordered ${formErrors.street ? 'input-error' : ''}`}
                                     value={shippingAddress.street}
-                                    onChange={(e) => setShippingAddress({ ...shippingAddress, street: e.target.value })}
-                                    required
+                                    onChange={(e) => {
+                                        setShippingAddress({ ...shippingAddress, street: e.target.value });
+                                        if (formErrors.street) setFormErrors({ ...formErrors, street: null });
+                                    }}
                                 />
+                                {formErrors.street && <span className="text-error text-xs mt-1">{formErrors.street}</span>}
                             </div>
+
+                            {/* City & State */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="form-control">
-                                    <label className="label"><span className="label-text">City</span></label>
+                                    <label className="label"><span className="label-text">City *</span></label>
                                     <input
                                         type="text"
-                                        className="input input-bordered"
+                                        placeholder="New York"
+                                        className={`input input-bordered ${formErrors.city ? 'input-error' : ''}`}
                                         value={shippingAddress.city}
-                                        onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                                        required
+                                        onChange={(e) => {
+                                            setShippingAddress({ ...shippingAddress, city: e.target.value });
+                                            if (formErrors.city) setFormErrors({ ...formErrors, city: null });
+                                        }}
                                     />
+                                    {formErrors.city && <span className="text-error text-xs mt-1">{formErrors.city}</span>}
                                 </div>
                                 <div className="form-control">
-                                    <label className="label"><span className="label-text">State</span></label>
+                                    <label className="label"><span className="label-text">State/Province *</span></label>
                                     <input
                                         type="text"
-                                        className="input input-bordered"
+                                        placeholder="NY"
+                                        className={`input input-bordered ${formErrors.state ? 'input-error' : ''}`}
                                         value={shippingAddress.state}
-                                        onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                                        required
+                                        onChange={(e) => {
+                                            setShippingAddress({ ...shippingAddress, state: e.target.value });
+                                            if (formErrors.state) setFormErrors({ ...formErrors, state: null });
+                                        }}
                                     />
+                                    {formErrors.state && <span className="text-error text-xs mt-1">{formErrors.state}</span>}
                                 </div>
                             </div>
+
+                            {/* ZIP & Country */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="form-control">
-                                    <label className="label"><span className="label-text">ZIP Code</span></label>
+                                    <label className="label"><span className="label-text">ZIP/Postal Code *</span></label>
                                     <input
                                         type="text"
-                                        className="input input-bordered"
+                                        placeholder="10001"
+                                        className={`input input-bordered ${formErrors.zipCode ? 'input-error' : ''}`}
                                         value={shippingAddress.zipCode}
-                                        onChange={(e) => setShippingAddress({ ...shippingAddress, zipCode: e.target.value })}
-                                        required
+                                        onChange={(e) => {
+                                            setShippingAddress({ ...shippingAddress, zipCode: e.target.value });
+                                            if (formErrors.zipCode) setFormErrors({ ...formErrors, zipCode: null });
+                                        }}
                                     />
+                                    {formErrors.zipCode && <span className="text-error text-xs mt-1">{formErrors.zipCode}</span>}
                                 </div>
                                 <div className="form-control">
-                                    <label className="label"><span className="label-text">Country</span></label>
-                                    <input
-                                        type="text"
-                                        className="input input-bordered"
+                                    <label className="label"><span className="label-text">Country *</span></label>
+                                    <select
+                                        className={`select select-bordered ${formErrors.country ? 'select-error' : ''}`}
                                         value={shippingAddress.country}
-                                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                                        required
-                                    />
+                                        onChange={(e) => {
+                                            setShippingAddress({ ...shippingAddress, country: e.target.value });
+                                            if (formErrors.country) setFormErrors({ ...formErrors, country: null });
+                                        }}
+                                    >
+                                        <option value="">Select country</option>
+                                        {countries.map((country) => (
+                                            <option key={country} value={country}>{country}</option>
+                                        ))}
+                                    </select>
+                                    {formErrors.country && <span className="text-error text-xs mt-1">{formErrors.country}</span>}
                                 </div>
                             </div>
+
+                            {/* Phone Number with Country Code */}
                             <div className="form-control">
-                                <label className="label"><span className="label-text">Phone Number</span></label>
-                                <input
-                                    type="tel"
-                                    className="input input-bordered"
+                                <label className="label"><span className="label-text">Phone Number *</span></label>
+                                <PhoneInput
+                                    international
+                                    countryCallingCodeEditable={false}
+                                    defaultCountry="US"
+                                    placeholder="Enter phone number"
                                     value={shippingAddress.phone}
-                                    onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })}
-                                    required
+                                    onChange={(value) => {
+                                        setShippingAddress({ ...shippingAddress, phone: value || '' });
+                                        if (formErrors.phone) setFormErrors({ ...formErrors, phone: null });
+                                    }}
+                                    className={`input input-bordered w-full ${formErrors.phone ? 'input-error' : ''}`}
                                 />
+                                {formErrors.phone && <span className="text-error text-xs mt-1">{formErrors.phone}</span>}
                             </div>
 
                             <div className="modal-action">

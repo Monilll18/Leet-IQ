@@ -150,9 +150,11 @@ function Navbar() {
             </div>
           </Link>
 
-          {/* STORE PAGE LINK */}
-          <Link
-            to={"/store"}
+          {/* STORE PAGE LINK - Opens in new tab */}
+          <a
+            href="/store"
+            target="_blank"
+            rel="noopener noreferrer"
             className={`px-4 py-2.5 rounded-lg transition-all duration-200 
               ${isActive("/store")
                 ? "bg-primary text-primary-content"
@@ -165,7 +167,7 @@ function Navbar() {
               <Coins className="size-4" />
               <span className="font-medium hidden sm:inline">Store</span>
             </div>
-          </Link>
+          </a>
 
           {/* Stats & Actions Area */}
           <div className="flex items-center gap-4 ml-6 relative">
@@ -307,22 +309,27 @@ function Navbar() {
             </div>
 
             {/* 5. Premium Button or Badge */}
+            {/* Premium Button - Opens in new tab */}
             {isPremium ? (
-              <Link
-                to="/premium"
+              <a
+                href="/premium"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hidden sm:flex px-3 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm items-center gap-1.5 shadow-lg hover:from-amber-500 hover:to-orange-600 transition-all"
               >
                 <CrownIcon className="size-3.5" />
                 PRO
-              </Link>
+              </a>
             ) : (
-              <Link
-                to="/premium"
+              <a
+                href="/premium"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hidden sm:flex px-4 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-bold text-sm hover:from-amber-500 hover:to-orange-600 transition-all shadow-lg hover:shadow-amber-500/30 items-center gap-1"
               >
                 <SparklesIcon className="size-3" />
                 Premium
-              </Link>
+              </a>
             )}
           </div>
         </div>

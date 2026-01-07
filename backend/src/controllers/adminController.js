@@ -1,50 +1,134 @@
 import User from "../models/User.js";
 import ContestSubmission from "../models/ContestSubmission.js";
 import Contest from "../models/Contest.js";
-import { PROBLEMS } from "../data/problems.js";
 
 /**
  * Get platform statistics for admin dashboard
  */
 export const getStats = async (req, res) => {
     try {
-        const totalUsers = await User.countDocuments();
-        const totalSubmissions = await ContestSubmission.countDocuments();
-        const totalContests = await Contest.countDocuments();
-        const totalProblems = Object.keys(PROBLEMS).length;
+        // Helper function to safely count documents
+        const safeCount = async (model, query = {}) => {
+            try {
+                return await model.countDocuments(query);
+            } catch (e) {
+                console.error(`Error counting ${model.modelName}:`, e.message);
+                return 0;
+            }
+        };
+
+        // Import models dynamically with error handling
+        let Problem, Session, Order;
+        try {
+            Problem = (await import("../models/Problem.js")).default;
+        } catch (e) {
+            console.error("Failed to import Problem model:", e.message);
+        }
+        try {
+            Session = (await import("../models/Session.js")).default;
+        } catch (e) {
+            console.error("Failed to import Session model:", e.message);
+        }
+        try {
+            Order = (await import("../models/StoreOrder.js")).default;
+        } catch (e) {
+            console.error("Failed to import StoreOrder model:", e.message);
+        }
+
+        // Basic counts
+        const totalUsers = await safeCount(User);
+        const totalSubmissions = await safeCount(ContestSubmission);
+        const totalContests = await safeCount(Contest);
+        const totalProblems = Problem ? await safeCount(Problem, { isActive: true }) : 0;
+        const totalSessions = Session ? await safeCount(Session) : 0;
+        const totalOrders = Order ? await safeCount(Order) : 0;
+
+        // Active users (users who have logged in within 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const activeUsers = await safeCount(User, { lastLogin: { $gte: thirtyDaysAgo } });
+
+        // Premium users count
+        const premiumUsers = await safeCount(User, { isPremium: true });
+
+        // Banned users count
+        const bannedUsers = await safeCount(User, { banned: true });
+
+        // Contest stats
+        const activeContests = await safeCount(Contest, { status: 'active' });
+        const upcomingContests = await safeCount(Contest, { status: 'upcoming' });
+
+        // Order stats
+        const pendingOrders = Order ? await safeCount(Order, { status: 'pending' }) : 0;
+        const shippedOrders = Order ? await safeCount(Order, { status: 'shipped' }) : 0;
 
         // Get recent activity
-        const recentUsers = await User.find()
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .select('name email createdAt');
+        let recentUsers = [];
+        try {
+            recentUsers = await User.find()
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .select('name email createdAt profileImage');
+        } catch (e) {
+            console.error("Error fetching recent users:", e.message);
+        }
 
-        const recentSubmissions = await ContestSubmission.find()
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .populate('userId', 'name email')
-            .select('problemId status runtime memory createdAt');
+        let recentSubmissions = [];
+        try {
+            recentSubmissions = await ContestSubmission.find()
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .populate('userId', 'name email')
+                .select('problemId status runtime memory createdAt');
+        } catch (e) {
+            console.error("Error fetching recent submissions:", e.message);
+        }
 
         // Get acceptance rates
-        const acceptedSubmissions = await ContestSubmission.countDocuments({ status: 'Accepted' });
+        const acceptedSubmissions = await safeCount(ContestSubmission, { status: 'Accepted' });
         const acceptanceRate = totalSubmissions > 0
             ? ((acceptedSubmissions / totalSubmissions) * 100).toFixed(1)
             : 0;
 
+        // Revenue from orders (total coins spent)
+        let totalCoinsSpent = 0;
+        if (Order) {
+            try {
+                const revenueAgg = await Order.aggregate([
+                    { $match: { status: { $ne: 'cancelled' } } },
+                    { $group: { _id: null, totalCoins: { $sum: '$totalPrice' } } }
+                ]);
+                totalCoinsSpent = revenueAgg[0]?.totalCoins || 0;
+            } catch (e) {
+                console.error("Error calculating revenue:", e.message);
+            }
+        }
+
         res.status(200).json({
             stats: {
                 totalUsers,
+                activeUsers,
+                premiumUsers,
+                bannedUsers,
                 totalSubmissions,
+                acceptedSubmissions,
                 totalContests,
+                activeContests,
+                upcomingContests,
                 totalProblems,
+                totalSessions,
+                totalOrders,
+                pendingOrders,
+                shippedOrders,
                 acceptanceRate,
+                totalCoinsSpent,
             },
             recentUsers,
             recentSubmissions,
         });
     } catch (error) {
         console.error("Error fetching admin stats:", error);
-        res.status(500).json({ message: "Failed to fetch statistics" });
+        res.status(500).json({ message: "Failed to fetch statistics", error: error.message });
     }
 };
 
